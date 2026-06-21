@@ -6,4 +6,9 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <PackageReference Include="BaseCrud" Version="1.0.1" />
+    <PackageReference Include="BaseCrud.Abstractions" Version="1.0.2" />
+  </ItemGroup>
+
 </Project>

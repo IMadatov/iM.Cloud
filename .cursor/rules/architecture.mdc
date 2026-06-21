@@ -1,0 +1,74 @@
+---
+description: iM.Cloud Clean Architecture boundaries, conventions, and coding standards
+alwaysApply: true
+---
+
+# iM.Cloud Architecture
+
+Self-hosted cloud storage (.NET 9, Clean Architecture). Follow `PROJECT_PLAN.md` for scope and phases.
+
+## Layer Dependencies (strict)
+
+| Layer | May reference | Must NOT reference |
+|-------|---------------|-------------------|
+| Domain | nothing | Application, Infrastructure, API, EF Core, ASP.NET |
+| Application | Domain | Infrastructure, API |
+| Infrastructure | Application, Domain | API |
+| API | Application, Infrastructure (DI only) | direct DB/storage calls |
+
+Dependency flow: `Domain ← Application ← Infrastructure ← API`.
+
+## File Placement
+
+Place new code in the correct project under `src/`:
+
+- `iM.Cloud.Domain/` — entities, value objects, domain enums
+- `iM.Cloud.Application/` — use cases (Command/Query + Handler), DTOs, interfaces (`IFileStorageService`, `IAuthService`, etc.)
+- `iM.Cloud.Infrastructure/` — EF Core, MinIO, JWT/BCrypt implementations
+- `iM.Cloud.API/` — controllers, middleware, `Program.cs` only
+
+Register services via each layer's `DependencyInjection.cs` (`AddApplication`, `AddInfrastructure`).
+
+## Use Case Pattern
+
+- One Command or Query class per use case — no large god-services
+- Handlers injected via DI — **no MediatR or other mediator libraries**
+- Auth handlers return `Result` or `Result<T>` from `Application.Common.Models`
+- Admin CRUD returns BaseCrud `ServiceResult` via `IEfCrudService` / `ICrudService` implementations
+- API controllers delegate to handlers (auth) or BaseCrud services (admin CRUD) — no business logic in controllers
+
+## Domain Entities
+
+- Private setters + static factory methods (`CreateFile`, `CreateFolder`)
+- Never `new Entity()` from outside the entity class
+
+## Storage Rules
+
+- Folder hierarchy lives in SQL (`FileItem`: `ParentId`, `IsFolder`)
+- File blobs live in MinIO (`StorageKey = {userId}/{fileId}`)
+- Application talks to storage only through `IFileStorageService`
+- Upload order: MinIO first, then SQL; rollback MinIO blob if SQL fails
+
+## Security (non-negotiable)
+
+- Check owner/permission on every file operation (IDOR protection)
+- Recursive delete for folders (SQL + MinIO cascade)
+- Validate file names (non-empty, length, no control characters)
+- Secrets never in `appsettings.json` — use `dotnet user-secrets` (dev) or environment variables (prod)
+
+## Minimalism
+
+- Do not add NuGet packages, patterns, or libraries without asking first
+- No test projects in MVP — verify with `dotnet build`
+- `TargetFramework`, `Nullable`, `ImplicitUsings` are set in `Directory.Build.props` — do not duplicate in csproj files
+
+## English Only
+
+All code artifacts must be in English:
+
+- Comments, identifiers, string literals, log messages, exception messages
+- Commit messages and PR descriptions
+
+## After Changes
+
+Run `dotnet build` from the solution root and fix any errors before finishing.

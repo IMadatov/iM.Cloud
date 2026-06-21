@@ -1,0 +1,152 @@
+using AutoMapper;
+using BaseCrud.Abstractions.Entities;
+using BaseCrud.EntityFrameworkCore;
+using BaseCrud.Errors;
+using BaseCrud.ServiceResults;
+using iM.Cloud.Application.Common.Interfaces;
+using iM.Cloud.Domain.Entities;
+using iM.Cloud.Infrastructure.Admin.Roles;
+using iM.Cloud.Infrastructure.Dtos.Roles;
+using iM.Cloud.Infrastructure.Identity;
+using iM.Cloud.Infrastructure.Mappings;
+using iM.Cloud.Infrastructure.Persistence;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+
+namespace iM.Cloud.Infrastructure.Admin.Roles;
+
+public sealed class RoleCrudService
+    : BaseCrudService<ApplicationRole, RoleListDto, RoleDetailsDto, Guid, Guid>, IRoleCrudService
+{
+    private readonly RoleManager<ApplicationRole> _roleManager;
+    private readonly ApplicationDbContext _db;
+    private readonly IPermissionCache _permissionCache;
+
+    public RoleCrudService(
+        ApplicationDbContext dbContext,
+        IMapper mapper,
+        RoleManager<ApplicationRole> roleManager,
+        IPermissionCache permissionCache)
+        : base(dbContext, mapper)
+    {
+        _roleManager = roleManager;
+        _db = dbContext;
+        _permissionCache = permissionCache;
+    }
+
+    public override async Task<ServiceResult<RoleDetailsDto?>> GetByIdAsync(
+        Guid id,
+        IUserProfile<Guid>? userProfile,
+        Func<CrudActionContext<ApplicationRole, Guid, Guid>, ValueTask<IQueryable<ApplicationRole>>>? customAction = null,
+        CancellationToken cancellationToken = default)
+    {
+        var role = await _roleManager.FindByIdAsync(id.ToString());
+        if (role is null)
+            return NotFound(new NotFoundServiceError());
+
+        return RoleMappings.ToDetailsDto(role);
+    }
+
+    public override async Task<ServiceResult<RoleDetailsDto>> InsertAsync(
+        RoleDetailsDto entity,
+        IUserProfile<Guid>? userProfile,
+        CancellationToken cancellationToken = default)
+    {
+        var name = entity.Name?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(name))
+            return BadRequest(new ValidationServiceError("Role name is required.", "validation.name_required"));
+
+        if (await _roleManager.RoleExistsAsync(name))
+            return Conflict(new ValidationServiceError("Role already exists.", "validation.role_exists"));
+
+        var role = new ApplicationRole
+        {
+            Id = Guid.NewGuid(),
+            Name = name,
+            NormalizedName = name.ToUpperInvariant(),
+            Description = entity.Description?.Trim(),
+            Active = true,
+            CreatedDate = DateTime.UtcNow,
+            CreatedBy = userProfile?.UserName
+        };
+
+        var result = await _roleManager.CreateAsync(role);
+        if (!result.Succeeded)
+        {
+            return BadRequest(new ValidationServiceError(
+                string.Join("; ", result.Errors.Select(e => e.Description)),
+                "validation.role_create_failed"));
+        }
+
+        return RoleMappings.ToDetailsDto(role);
+    }
+
+    public override async Task<ServiceResult<RoleDetailsDto>> UpdateAsync(
+        RoleDetailsDto entity,
+        IUserProfile<Guid>? userProfile,
+        CancellationToken cancellationToken = default)
+    {
+        var role = await _roleManager.FindByIdAsync(entity.Id.ToString());
+        if (role is null)
+            return NotFound(new NotFoundServiceError());
+
+        RoleMappings.ApplyDetails(role, entity);
+        role.LastModifiedBy = userProfile?.UserName;
+
+        var result = await _roleManager.UpdateAsync(role);
+        if (!result.Succeeded)
+        {
+            return BadRequest(new ValidationServiceError(
+                string.Join("; ", result.Errors.Select(e => e.Description)),
+                "validation.role_update_failed"));
+        }
+
+        await _permissionCache.InvalidateUsersInRoleAsync(role.Id, cancellationToken);
+        return RoleMappings.ToDetailsDto(role);
+    }
+
+    public async Task<ServiceResult> AssignPermissionAsync(
+        Guid roleId,
+        string permissionCode,
+        CancellationToken cancellationToken = default)
+    {
+        var role = await _roleManager.FindByIdAsync(roleId.ToString());
+        if (role is null)
+            return NotFound(new NotFoundServiceError("Role not found."));
+
+        var permission = await _db.Permissions
+            .FirstOrDefaultAsync(p => p.Code == permissionCode, cancellationToken);
+
+        if (permission is null)
+            return NotFound(new NotFoundServiceError("Permission not found."));
+
+        var exists = await _db.RolePermissions
+            .AnyAsync(rp => rp.RoleId == roleId && rp.PermissionId == permission.Id, cancellationToken);
+
+        if (!exists)
+        {
+            _db.RolePermissions.Add(RolePermission.Create(roleId, permission.Id));
+            await _db.SaveChangesAsync(cancellationToken);
+        }
+
+        await _permissionCache.InvalidateUsersInRoleAsync(roleId, cancellationToken);
+        return NoContent();
+    }
+
+    public async Task<ServiceResult> RemovePermissionAsync(
+        Guid roleId,
+        Guid permissionId,
+        CancellationToken cancellationToken = default)
+    {
+        var entry = await _db.RolePermissions
+            .FirstOrDefaultAsync(rp => rp.RoleId == roleId && rp.PermissionId == permissionId, cancellationToken);
+
+        if (entry is null)
+            return NotFound(new NotFoundServiceError("Role permission not found."));
+
+        _db.RolePermissions.Remove(entry);
+        await _db.SaveChangesAsync(cancellationToken);
+        await _permissionCache.InvalidateUsersInRoleAsync(roleId, cancellationToken);
+        return NoContent();
+    }
+}

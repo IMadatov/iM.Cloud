@@ -1,0 +1,54 @@
+---
+description: Domain layer purity rules for iM.Cloud entities and value objects
+globs: src/iM.Cloud.Domain/**/*.cs
+alwaysApply: false
+---
+
+# Domain Layer Purity
+
+The Domain project is pure C# — no infrastructure or framework dependencies.
+
+## Allowed
+
+- Entities, value objects, domain enums, domain exceptions
+- `System.*` and BCL types only
+- `BaseCrud.Abstractions` and `BaseCrud` packages (`EntityBase<Guid>`, `ISelectExpression`, DTO markers)
+- Business invariants enforced inside entities (factory methods)
+
+## Forbidden
+
+- EF Core attributes or `DbContext` references
+- ASP.NET Core types
+- NuGet packages except `BaseCrud.Abstractions` and `BaseCrud` (see Allowed)
+- References to Application, Infrastructure, or API projects
+- Interface implementations for external services
+
+## Entity Pattern
+
+```csharp
+// GOOD
+public class FileItem
+{
+    public Guid Id { get; private set; }
+    public string Name { get; private set; } = null!;
+
+    private FileItem() { }
+
+    public static FileItem CreateFile(string name, Guid ownerId, Guid? parentId)
+    {
+        // validate invariants here
+        return new FileItem { /* ... */ };
+    }
+}
+
+// BAD — public setters, direct construction from outside
+public class FileItem
+{
+    public Guid Id { get; set; }
+}
+// var file = new FileItem(); // never expose public ctor for creation
+```
+
+## Naming
+
+Use English for all types, members, and comments.

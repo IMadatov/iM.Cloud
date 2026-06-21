@@ -1,3 +1,4 @@
+using iM.Cloud.Application.Auth;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace iM.Cloud.Application;
@@ -6,7 +7,10 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
-        // Auth fazasida handler'lar shu yerda ro'yxatdan o'tadi
+        services.AddScoped<LoginHandler>();
+        services.AddScoped<RefreshTokenHandler>();
+        services.AddScoped<GetMeHandler>();
+
         return services;
     }
 }

@@ -1,0 +1,153 @@
+using AutoMapper;
+using BaseCrud.Abstractions.Entities;
+using BaseCrud.EntityFrameworkCore;
+using BaseCrud.Errors;
+using BaseCrud.ServiceResults;
+using iM.Cloud.Application.Admin.Groups;
+using iM.Cloud.Domain.Dtos.Groups;
+using iM.Cloud.Domain.Entities;
+using iM.Cloud.Domain.Mappings;
+using iM.Cloud.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
+
+namespace iM.Cloud.Infrastructure.Admin.Groups;
+
+public sealed class GroupService : BaseCrudService<Group, GroupListDto, GroupDetailsDto, Guid, Guid>, IGroupService
+{
+    private readonly ApplicationDbContext _db;
+
+    public GroupService(ApplicationDbContext dbContext, IMapper mapper)
+        : base(dbContext, mapper)
+        => _db = dbContext;
+
+    public override async Task<ServiceResult<GroupDetailsDto?>> GetByIdAsync(
+        Guid id,
+        IUserProfile<Guid>? userProfile,
+        Func<CrudActionContext<Group, Guid, Guid>, ValueTask<IQueryable<Group>>>? customAction = null,
+        CancellationToken cancellationToken = default)
+    {
+        var entityResult = await GetEntityByIdAsync(id, userProfile, customAction, cancellationToken);
+        if (!entityResult.IsSuccess)
+            return ServiceResult.FromFailed(entityResult).ToType<GroupDetailsDto?>();
+
+        if (entityResult.Result is null)
+            return NotFound(new NotFoundServiceError());
+
+        return GroupMappings.ToDetailsDto(entityResult.Result);
+    }
+
+    public override async Task<ServiceResult<GroupDetailsDto>> InsertAsync(
+        GroupDetailsDto entity,
+        IUserProfile<Guid>? userProfile,
+        CancellationToken cancellationToken = default)
+    {
+        var name = entity.Name?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(name))
+            return BadRequest(new ValidationServiceError("Group name is required.", "validation.name_required"));
+
+        var exists = await _db.Groups.AnyAsync(g => g.Name == name, cancellationToken);
+        if (exists)
+            return Conflict(new ValidationServiceError("Group name already exists.", "validation.name_exists"));
+
+        var group = Group.Create(name, entity.Description, userProfile?.UserName);
+        var insertResult = await InsertAsync(group, userProfile, cancellationToken);
+        if (!insertResult.IsSuccess)
+            return ServiceResult.FromFailed(insertResult).ToType<GroupDetailsDto>();
+
+        return GroupMappings.ToDetailsDto(insertResult.Result!);
+    }
+
+    public override async Task<ServiceResult<GroupDetailsDto>> UpdateAsync(
+        GroupDetailsDto entity,
+        IUserProfile<Guid>? userProfile,
+        CancellationToken cancellationToken = default)
+    {
+        var group = await _db.Groups.FirstOrDefaultAsync(g => g.Id == entity.Id, cancellationToken);
+        if (group is null)
+            return NotFound(new NotFoundServiceError());
+
+        var name = entity.Name?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(name))
+            return BadRequest(new ValidationServiceError("Group name is required.", "validation.name_required"));
+
+        var nameTaken = await _db.Groups.AnyAsync(g => g.Id != entity.Id && g.Name == name, cancellationToken);
+        if (nameTaken)
+            return Conflict(new ValidationServiceError("Group name already exists.", "validation.name_exists"));
+
+        GroupMappings.ApplyDetails(group, entity);
+        group.LastModifiedBy = userProfile?.UserName;
+
+        await _db.SaveChangesAsync(cancellationToken);
+        return GroupMappings.ToDetailsDto(group);
+    }
+
+    public async Task<ServiceResult> AddMemberAsync(Guid groupId, Guid userId, CancellationToken cancellationToken = default)
+    {
+        var groupExists = await _db.Groups.AnyAsync(g => g.Id == groupId && g.Active, cancellationToken);
+        if (!groupExists)
+            return NotFound(new NotFoundServiceError("Group not found."));
+
+        var userExists = await _db.Users.AnyAsync(u => u.Id == userId, cancellationToken);
+        if (!userExists)
+            return NotFound(new NotFoundServiceError("User not found."));
+
+        var exists = await _db.UserGroups.AnyAsync(ug => ug.GroupId == groupId && ug.UserId == userId, cancellationToken);
+        if (!exists)
+        {
+            _db.UserGroups.Add(UserGroup.Create(userId, groupId));
+            await _db.SaveChangesAsync(cancellationToken);
+        }
+
+        return NoContent();
+    }
+
+    public async Task<ServiceResult> RemoveMemberAsync(Guid groupId, Guid userId, CancellationToken cancellationToken = default)
+    {
+        var entry = await _db.UserGroups
+            .FirstOrDefaultAsync(ug => ug.GroupId == groupId && ug.UserId == userId, cancellationToken);
+
+        if (entry is null)
+            return NotFound(new NotFoundServiceError("Membership not found."));
+
+        _db.UserGroups.Remove(entry);
+        await _db.SaveChangesAsync(cancellationToken);
+        return NoContent();
+    }
+
+    public async Task<ServiceResult<IReadOnlyList<Guid>>> ListMemberIdsAsync(
+        Guid groupId,
+        CancellationToken cancellationToken = default)
+    {
+        var groupExists = await _db.Groups.AnyAsync(g => g.Id == groupId, cancellationToken);
+        if (!groupExists)
+            return (ServiceResult<IReadOnlyList<Guid>>)NotFound(new NotFoundServiceError("Group not found."));
+
+        var userIds = await _db.UserGroups
+            .Where(ug => ug.GroupId == groupId)
+            .Select(ug => ug.UserId)
+            .ToListAsync(cancellationToken);
+
+        return userIds;
+    }
+
+    public async Task<ServiceResult<IReadOnlyList<GroupListDto>>> GetMyGroupsAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        var groups = await _db.UserGroups
+            .Where(ug => ug.UserId == userId)
+            .Join(_db.Groups.Where(g => g.Active), ug => ug.GroupId, g => g.Id, (_, g) => g)
+            .OrderBy(g => g.Name)
+            .Select(g => new GroupListDto
+            {
+                Id = g.Id,
+                Name = g.Name,
+                Description = g.Description,
+                CreatedAt = g.CreatedDate,
+                Active = g.Active
+            })
+            .ToListAsync(cancellationToken);
+
+        return groups;
+    }
+}

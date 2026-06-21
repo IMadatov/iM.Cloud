@@ -31,19 +31,30 @@ User model: **to'liq multi-user** (foydalanuvchi o'z fayllariga ega, kerak bo'ls
 2. **Application** — use case'lar (CQRS uslubida Command/Query), DTO'lar, interface'lar (`IFileStorageService`, `IAuthService` va h.k.).
 3. **Infrastructure** — EF Core, MinIO storage, JWT servis implementatsiyalari.
 4. **API** — faqat Application use case'larini chaqiradi, biznes mantiq yo'q.
-5. Entity'lar **private setter** + **factory method** orqali — to'g'ridan-to'g'ri `new Entity()` yo'q.
-6. Har bir use case alohida Command/Query class (bitta katta Service emas).
-7. **Mediator library YO'Q** — handler'lar DI orqali inject qilinadi.
+5. Entity'lar **factory method** orqali yaratiladi; BaseCrud entity'lar `EntityBase<Guid>` + public parameterless ctor (EF/BaseCrud talabi).
+6. Har bir use case alohida Command/Query class (bitta katta Service emas) — **admin CRUD** uchun [BaseCrud](https://www.nuget.org/packages/BaseCrud.EntityFrameworkCore) `BaseCrudService` + `ISelectExpression` ishlatiladi.
+7. **Mediator library YO'Q** — auth handler'lar DI orqali; admin CRUD servislar BaseCrud auto-register.
+8. **BaseCrud** — NuGet (`BaseCrud.EntityFrameworkCore`, `BaseCrud.PrimeNg`, `BaseCrud.Abstractions`); mapping `ISelectExpression` + static `*Mappings` (AutoMapper Profile yo'q).
 
 ### Dependency qoidalari
 
 | Qatlam | Ruxsat etilgan dependency |
 |--------|---------------------------|
-| Domain | Hech narsa |
+| Domain | `BaseCrud.Abstractions`, `BaseCrud` (EntityBase, ISelectExpression) |
 | Application | Domain |
 | Infrastructure | Application, Domain |
 | API | Application, Infrastructure (faqat DI uchun) |
 | Client | API (HTTP) |
+
+### API client generation (NSwag)
+
+Backend generates OpenAPI + Angular TypeScript client for the frontend team:
+
+```bash
+./scripts/generate-api-client.sh
+```
+
+Outputs: `openapi/iM.Cloud.openapi.json`, `clients/angular/im-cloud-api-client.ts`. See `clients/angular/README.md`.
 
 ---
 

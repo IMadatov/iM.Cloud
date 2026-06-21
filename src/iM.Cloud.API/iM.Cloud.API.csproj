@@ -7,12 +7,29 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.15" />
+    <PackageReference Include="BaseCrud.PrimeNg" Version="1.0.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.9" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.9">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.OpenApi" Version="2.7.5" />
+    <PackageReference Include="NSwag.AspNetCore" Version="14.2.0" />
+    <PackageReference Include="NSwag.MSBuild" Version="14.2.0">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="10.2.1" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\iM.Cloud.Application\iM.Cloud.Application.csproj" />
     <ProjectReference Include="..\iM.Cloud.Infrastructure\iM.Cloud.Infrastructure.csproj" />
+    <ProjectReference Include="..\iM.Cloud.Domain\iM.Cloud.Domain.csproj" />
   </ItemGroup>
+
+  <Target Name="GenerateApiClient" AfterTargets="Build" Condition="'$(GenerateApiClient)' == 'true'">
+    <Exec WorkingDirectory="$(MSBuildProjectDirectory)" Command="$(NSwagExe_Net90) run nswag.json /variables:Configuration=$(Configuration)" />
+  </Target>
 
 </Project>
