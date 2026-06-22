@@ -22,6 +22,7 @@ import {
   TableColumn,
 } from '../../../shared/components/generic-table/generic-table.types';
 import { RoleFormDialogComponent } from './role-form-dialog.component';
+import { RolePermissionsDialogComponent } from './role-permissions-dialog.component';
 
 type RoleTableRow = RoleListDto & { actions?: null };
 
@@ -31,6 +32,7 @@ type RoleTableRow = RoleListDto & { actions?: null };
     GenericTableComponent,
     CellTemplateDirective,
     RoleFormDialogComponent,
+    RolePermissionsDialogComponent,
     Button,
     Tag,
   ],
@@ -46,14 +48,16 @@ export class RolesComponent {
   private readonly table = viewChild(GenericTableComponent);
 
   protected readonly dialogVisible = signal(false);
+  protected readonly permDialogVisible = signal(false);
   protected readonly editingRole = signal<RoleDetailsDto | null>(null);
+  protected readonly permissionsRole = signal<RoleListDto | null>(null);
   protected readonly editLoading = signal(false);
 
   readonly columns: TableColumn<RoleTableRow>[] = [
     { field: 'name', header: 'Name', sortable: true, filter: true },
     { field: 'description', header: 'Description', sortable: true, filter: true },
     { field: 'active', header: 'Status', sortable: true },
-    { field: 'actions', header: 'Actions', width: '8rem' },
+    { field: 'actions', header: 'Actions', width: '11rem' },
   ];
 
   readonly tableConfig: GenericTableConfig = {
@@ -84,6 +88,11 @@ export class RolesComponent {
           this.dialogVisible.set(true);
         },
       });
+  }
+
+  protected openPermissions(row: RoleListDto): void {
+    this.permissionsRole.set(row);
+    this.permDialogVisible.set(true);
   }
 
   protected confirmDelete(row: RoleListDto): void {

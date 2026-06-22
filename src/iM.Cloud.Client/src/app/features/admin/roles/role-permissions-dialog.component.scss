@@ -1,0 +1,41 @@
+.role-permissions-dialog__status {
+  margin: 0;
+  color: var(--p-text-muted-color);
+}
+
+.role-permissions-dialog__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-height: 24rem;
+  overflow-y: auto;
+}
+
+.role-permissions-dialog__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.role-permissions-dialog__item label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  cursor: pointer;
+}
+
+.role-permissions-dialog__name {
+  font-weight: 600;
+}
+
+.role-permissions-dialog__code {
+  font-size: 0.875rem;
+  color: var(--p-text-muted-color);
+}
+
+.role-permissions-dialog__description {
+  font-size: 0.875rem;
+}

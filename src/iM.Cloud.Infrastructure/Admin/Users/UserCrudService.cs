@@ -5,7 +5,9 @@ using BaseCrud.Errors;
 using BaseCrud.ServiceResults;
 using iM.Cloud.Application.Common;
 using iM.Cloud.Application.Common.Interfaces;
+using iM.Cloud.Domain.Dtos.Permissions;
 using iM.Cloud.Domain.Entities;
+using iM.Cloud.Infrastructure.Dtos.Roles;
 using iM.Cloud.Infrastructure.Admin.Users;
 using iM.Cloud.Infrastructure.Dtos.Users;
 using iM.Cloud.Infrastructure.Identity;
@@ -124,6 +126,59 @@ public sealed class UserCrudService
 
         _permissionCache.InvalidateUser(user.Id);
         return UserMappings.ToDetailsDto(user);
+    }
+
+    public async Task<ServiceResult<List<RoleListDto>>> GetRolesAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        var user = await _userManager.FindByIdAsync(userId.ToString());
+        if (user is null)
+            return NotFound(new NotFoundServiceError(
+                ErrorKeys.Users.NotFoundMessage,
+                ErrorKeys.Users.NotFound));
+
+        var roles = await _db.UserRoles
+            .Where(ur => ur.UserId == userId)
+            .Join(_db.Roles, ur => ur.RoleId, r => r.Id, (_, r) => r)
+            .OrderBy(r => r.Name)
+            .Select(r => new RoleListDto
+            {
+                Id = r.Id,
+                Name = r.Name ?? string.Empty,
+                Description = r.Description,
+                Active = r.Active
+            })
+            .ToListAsync(cancellationToken);
+
+        return roles;
+    }
+
+    public async Task<ServiceResult<List<PermissionListDto>>> GetDirectPermissionsAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        var user = await _userManager.FindByIdAsync(userId.ToString());
+        if (user is null)
+            return NotFound(new NotFoundServiceError(
+                ErrorKeys.Users.NotFoundMessage,
+                ErrorKeys.Users.NotFound));
+
+        var permissions = await _db.UserPermissions
+            .Where(up => up.UserId == userId)
+            .Join(_db.Permissions, up => up.PermissionId, p => p.Id, (_, p) => p)
+            .OrderBy(p => p.Code)
+            .Select(p => new PermissionListDto
+            {
+                Id = p.Id,
+                Code = p.Code,
+                Name = p.Name,
+                Description = p.Description,
+                Active = p.Active
+            })
+            .ToListAsync(cancellationToken);
+
+        return permissions;
     }
 
     public async Task<ServiceResult> AssignRoleAsync(Guid userId, string roleName, CancellationToken cancellationToken = default)

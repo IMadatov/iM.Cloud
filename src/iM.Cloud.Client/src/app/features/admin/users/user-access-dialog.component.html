@@ -1,0 +1,72 @@
+<p-dialog
+  [header]="dialogHeader"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [style]="{ width: '36rem' }"
+  [visible]="visible()"
+  (visibleChange)="visible.set($event)"
+>
+  @if (loading()) {
+    <p class="user-access-dialog__status">Loading access...</p>
+  } @else {
+    <div class="user-access-dialog__sections">
+      <p-fieldset legend="Roles">
+        @if (roleCatalog().length === 0) {
+          <p class="user-access-dialog__status">No roles available.</p>
+        } @else {
+          <ul class="user-access-dialog__list">
+            @for (role of roleCatalog(); track role.id) {
+              <li class="user-access-dialog__item">
+                <p-checkbox
+                  [binary]="true"
+                  [ngModel]="isRoleAssigned(role)"
+                  [disabled]="isRoleBusy(role)"
+                  [inputId]="'user-role-' + role.id"
+                  (onChange)="onRoleToggle(role, $event.checked)"
+                />
+                <label [for]="'user-role-' + role.id">
+                  <span class="user-access-dialog__name">{{ role.name }}</span>
+                  @if (role.description) {
+                    <span class="user-access-dialog__description">{{
+                      role.description
+                    }}</span>
+                  }
+                </label>
+              </li>
+            }
+          </ul>
+        }
+      </p-fieldset>
+
+      <p-fieldset legend="Direct permissions">
+        @if (permissionCatalog().length === 0) {
+          <p class="user-access-dialog__status">No permissions available.</p>
+        } @else {
+          <ul class="user-access-dialog__list">
+            @for (permission of permissionCatalog(); track permission.id) {
+              <li class="user-access-dialog__item">
+                <p-checkbox
+                  [binary]="true"
+                  [ngModel]="isPermissionAssigned(permission)"
+                  [disabled]="isPermissionBusy(permission)"
+                  [inputId]="'user-perm-' + permission.id"
+                  (onChange)="onPermissionToggle(permission, $event.checked)"
+                />
+                <label [for]="'user-perm-' + permission.id">
+                  <span class="user-access-dialog__name">{{ permission.name }}</span>
+                  <span class="user-access-dialog__code">{{ permission.code }}</span>
+                  @if (permission.description) {
+                    <span class="user-access-dialog__description">{{
+                      permission.description
+                    }}</span>
+                  }
+                </label>
+              </li>
+            }
+          </ul>
+        }
+      </p-fieldset>
+    </div>
+  }
+</p-dialog>

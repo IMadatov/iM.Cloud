@@ -5,6 +5,8 @@ using iM.Cloud.API.Common;
 using iM.Cloud.Application.Auth.Dtos;
 using iM.Cloud.Application.Common.Interfaces;
 using iM.Cloud.Domain.Authorization;
+using iM.Cloud.Domain.Dtos.Permissions;
+using iM.Cloud.Infrastructure.Dtos.Roles;
 using iM.Cloud.Infrastructure.Admin.Users;
 using iM.Cloud.Infrastructure.Dtos.Users;
 using Microsoft.AspNetCore.Authorization;
@@ -49,6 +51,16 @@ public sealed class AdminUsersController : ApiControllerBase
     [RequirePermission(PermissionCodes.UsersUpdate)]
     public Task<ActionResult> Deactivate(Guid id, CancellationToken cancellationToken)
         => FromServiceResult(_userCrudService.DeactivateByIdAsync(id, UserProfile, cancellationToken: cancellationToken));
+
+    [HttpGet("{userId:guid}/roles")]
+    [RequirePermission(PermissionCodes.UsersRead)]
+    public Task<ActionResult<List<RoleListDto>?>> GetRoles(Guid userId, CancellationToken cancellationToken)
+        => FromServiceResult(_userCrudService.GetRolesAsync(userId, cancellationToken));
+
+    [HttpGet("{userId:guid}/permissions")]
+    [RequirePermission(PermissionCodes.UsersRead)]
+    public Task<ActionResult<List<PermissionListDto>?>> GetPermissions(Guid userId, CancellationToken cancellationToken)
+        => FromServiceResult(_userCrudService.GetDirectPermissionsAsync(userId, cancellationToken));
 
     [HttpPost("{userId:guid}/roles")]
     [RequirePermission(PermissionCodes.UsersUpdate)]

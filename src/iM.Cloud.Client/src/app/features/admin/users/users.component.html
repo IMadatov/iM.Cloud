@@ -28,6 +28,13 @@
   <ng-template imCellTemplate="actions" let-row>
     <div class="users-actions">
       <p-button
+        icon="pi pi-shield"
+        [text]="true"
+        [rounded]="true"
+        severity="info"
+        (onClick)="openAccess(row); $event.stopPropagation()"
+      />
+      <p-button
         icon="pi pi-pencil"
         [text]="true"
         [rounded]="true"
@@ -50,4 +57,9 @@
   [(visible)]="dialogVisible"
   [user]="editingUser()"
   (saved)="onSaved()"
+/>
+
+<app-user-access-dialog
+  [(visible)]="accessDialogVisible"
+  [user]="accessUser()"
 />

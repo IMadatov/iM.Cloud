@@ -1,0 +1,38 @@
+<p-dialog
+  [header]="dialogHeader"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [style]="{ width: '32rem' }"
+  [visible]="visible()"
+  (visibleChange)="visible.set($event)"
+>
+  @if (loading()) {
+    <p class="role-permissions-dialog__status">Loading permissions...</p>
+  } @else if (catalog().length === 0) {
+    <p class="role-permissions-dialog__status">No permissions available.</p>
+  } @else {
+    <ul class="role-permissions-dialog__list">
+      @for (permission of catalog(); track permission.id) {
+        <li class="role-permissions-dialog__item">
+          <p-checkbox
+            [binary]="true"
+            [ngModel]="isAssigned(permission)"
+            [disabled]="isBusy(permission)"
+            [inputId]="'role-perm-' + permission.id"
+            (onChange)="onToggle(permission, $event.checked)"
+          />
+          <label [for]="'role-perm-' + permission.id">
+            <span class="role-permissions-dialog__name">{{ permission.name }}</span>
+            <span class="role-permissions-dialog__code">{{ permission.code }}</span>
+            @if (permission.description) {
+              <span class="role-permissions-dialog__description">{{
+                permission.description
+              }}</span>
+            }
+          </label>
+        </li>
+      }
+    </ul>
+  }
+</p-dialog>

@@ -5,6 +5,7 @@ using iM.Cloud.API.Common;
 using iM.Cloud.Application.Auth.Dtos;
 using iM.Cloud.Application.Common.Interfaces;
 using iM.Cloud.Domain.Authorization;
+using iM.Cloud.Domain.Dtos.Permissions;
 using iM.Cloud.Infrastructure.Admin.Roles;
 using iM.Cloud.Infrastructure.Dtos.Roles;
 using Microsoft.AspNetCore.Authorization;
@@ -49,6 +50,11 @@ public sealed class AdminRolesController : ApiControllerBase
     [RequirePermission(PermissionCodes.RolesManage)]
     public Task<ActionResult> Deactivate(Guid id, CancellationToken cancellationToken)
         => FromServiceResult(_roleCrudService.DeactivateByIdAsync(id, UserProfile, cancellationToken: cancellationToken));
+
+    [HttpGet("{roleId:guid}/permissions")]
+    [RequirePermission(PermissionCodes.RolesManage)]
+    public Task<ActionResult<List<PermissionListDto>?>> GetPermissions(Guid roleId, CancellationToken cancellationToken)
+        => FromServiceResult(_roleCrudService.GetPermissionsAsync(roleId, cancellationToken));
 
     [HttpPost("{roleId:guid}/permissions")]
     [RequirePermission(PermissionCodes.RolesManage)]

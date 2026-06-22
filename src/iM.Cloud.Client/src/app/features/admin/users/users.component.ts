@@ -23,6 +23,7 @@ import {
   TableColumn,
 } from '../../../shared/components/generic-table/generic-table.types';
 import { UserFormDialogComponent } from './user-form-dialog.component';
+import { UserAccessDialogComponent } from './user-access-dialog.component';
 
 type UserTableRow = UserListDto & { actions?: null };
 
@@ -32,6 +33,7 @@ type UserTableRow = UserListDto & { actions?: null };
     GenericTableComponent,
     CellTemplateDirective,
     UserFormDialogComponent,
+    UserAccessDialogComponent,
     Button,
     Tag,
     DatePipe,
@@ -48,7 +50,9 @@ export class UsersComponent {
   private readonly table = viewChild(GenericTableComponent);
 
   protected readonly dialogVisible = signal(false);
+  protected readonly accessDialogVisible = signal(false);
   protected readonly editingUser = signal<UserDetailsDto | null>(null);
+  protected readonly accessUser = signal<UserListDto | null>(null);
   protected readonly editLoading = signal(false);
 
   readonly columns: TableColumn<UserTableRow>[] = [
@@ -56,7 +60,7 @@ export class UsersComponent {
     { field: 'displayName', header: 'Name', sortable: true, filter: true },
     { field: 'active', header: 'Status', sortable: true },
     { field: 'createdAt', header: 'Created', sortable: true },
-    { field: 'actions', header: 'Actions', width: '8rem' },
+    { field: 'actions', header: 'Actions', width: '11rem' },
   ];
 
   readonly tableConfig: GenericTableConfig = {
@@ -87,6 +91,11 @@ export class UsersComponent {
           this.dialogVisible.set(true);
         },
       });
+  }
+
+  protected openAccess(row: UserListDto): void {
+    this.accessUser.set(row);
+    this.accessDialogVisible.set(true);
   }
 
   protected confirmDelete(row: UserListDto): void {

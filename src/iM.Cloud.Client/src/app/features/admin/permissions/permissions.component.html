@@ -1,0 +1,14 @@
+<im-generic-table
+  [columns]="columns"
+  [dataSource]="loadPermissions"
+  [config]="tableConfig"
+>
+  <h2 tableHeader>Permissions</h2>
+
+  <ng-template imCellTemplate="active" let-row>
+    <p-tag
+      [severity]="row.active ? 'success' : 'danger'"
+      [value]="row.active ? 'Active' : 'Inactive'"
+    />
+  </ng-template>
+</im-generic-table>

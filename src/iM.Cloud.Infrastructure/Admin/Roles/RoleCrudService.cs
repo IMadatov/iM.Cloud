@@ -5,6 +5,7 @@ using BaseCrud.Errors;
 using BaseCrud.ServiceResults;
 using iM.Cloud.Application.Common;
 using iM.Cloud.Application.Common.Interfaces;
+using iM.Cloud.Domain.Dtos.Permissions;
 using iM.Cloud.Domain.Entities;
 using iM.Cloud.Infrastructure.Admin.Roles;
 using iM.Cloud.Infrastructure.Dtos.Roles;
@@ -112,6 +113,33 @@ public sealed class RoleCrudService
 
         await _permissionCache.InvalidateUsersInRoleAsync(role.Id, cancellationToken);
         return RoleMappings.ToDetailsDto(role);
+    }
+
+    public async Task<ServiceResult<List<PermissionListDto>>> GetPermissionsAsync(
+        Guid roleId,
+        CancellationToken cancellationToken = default)
+    {
+        var role = await _roleManager.FindByIdAsync(roleId.ToString());
+        if (role is null)
+            return NotFound(new NotFoundServiceError(
+                ErrorKeys.Roles.NotFoundMessage,
+                ErrorKeys.Roles.NotFound));
+
+        var permissions = await _db.RolePermissions
+            .Where(rp => rp.RoleId == roleId)
+            .Join(_db.Permissions, rp => rp.PermissionId, p => p.Id, (_, p) => p)
+            .OrderBy(p => p.Code)
+            .Select(p => new PermissionListDto
+            {
+                Id = p.Id,
+                Code = p.Code,
+                Name = p.Name,
+                Description = p.Description,
+                Active = p.Active
+            })
+            .ToListAsync(cancellationToken);
+
+        return permissions;
     }
 
     public async Task<ServiceResult> AssignPermissionAsync(

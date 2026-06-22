@@ -22,6 +22,13 @@
   <ng-template imCellTemplate="actions" let-row>
     <div class="roles-actions">
       <p-button
+        icon="pi pi-key"
+        [text]="true"
+        [rounded]="true"
+        severity="info"
+        (onClick)="openPermissions(row); $event.stopPropagation()"
+      />
+      <p-button
         icon="pi pi-pencil"
         [text]="true"
         [rounded]="true"
@@ -44,4 +51,9 @@
   [(visible)]="dialogVisible"
   [role]="editingRole()"
   (saved)="onSaved()"
+/>
+
+<app-role-permissions-dialog
+  [(visible)]="permDialogVisible"
+  [role]="permissionsRole()"
 />

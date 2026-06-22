@@ -41,6 +41,15 @@ export const routes: Routes = [
             (m) => m.RolesComponent,
           ),
       },
+      {
+        path: 'admin/permissions',
+        canActivate: [permissionGuard],
+        data: { permission: 'roles.manage' },
+        loadComponent: () =>
+          import('./features/admin/permissions/permissions.component').then(
+            (m) => m.PermissionsComponent,
+          ),
+      },
     ],
   },
   {
