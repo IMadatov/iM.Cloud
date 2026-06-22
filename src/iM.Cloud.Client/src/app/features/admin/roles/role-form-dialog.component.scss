@@ -1,0 +1,28 @@
+.role-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.role-form label {
+  font-weight: 500;
+}
+
+.full-width {
+  width: 100%;
+}
+
+.role-form__active {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 0.25rem;
+}
+
+.role-form__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}

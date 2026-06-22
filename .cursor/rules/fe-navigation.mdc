@@ -1,0 +1,68 @@
+---
+description: FE dynamic navigation from BE permission-based catalog (GET /api/navigation/my)
+globs: src/iM.Cloud.Client/**/*
+alwaysApply: false
+---
+
+# FE navigation (BE-controlled)
+
+Navigation visibility is **owned by the backend**. The FE never hardcodes admin menu items in layout components.
+
+## How it works
+
+```mermaid
+sequenceDiagram
+    participant Auth as AuthService
+    participant Nav as NavigationService
+    participant API as GET_api_navigation_my
+    participant Layout as MainLayout
+
+    Auth->>API: loadMe then navigation.load
+    API-->>Nav: NavigationItemDto[] filtered by permissions
+    Nav-->>Layout: menuItems$ PrimeNG MenuItem[]
+```
+
+| Layer | Responsibility |
+|-------|----------------|
+| BE `NavigationCatalog` | Static list: path, icon, label key, `RequiredPermission` |
+| BE `GetMyNavigationHandler` | Filter items by user permissions (`IPermissionCache`) |
+| BE `GET /api/navigation/my` | Returns only allowed items for current user |
+| FE `NavigationService` | Calls `NavigationClient.my()`, exposes `menuItems$` |
+| FE `permissionGuard` | Blocks direct URL access when permission missing |
+
+## FE rules (do / don't)
+
+**Do:**
+- Use [`NavigationService`](src/iM.Cloud.Client/src/app/core/navigation/navigation.service.ts) for menubar: `menuItems$` in [`MainLayoutComponent`](src/iM.Cloud.Client/src/app/layout/main-layout/main-layout.component.ts).
+- Load navigation after auth session is established — [`AuthService.loadMe()`](src/iM.Cloud.Client/src/app/core/auth/auth.service.ts) chains `navigation.load()`; `clearSession()` calls `navigation.clear()`.
+- Protect restricted routes with [`permissionGuard`](src/iM.Cloud.Client/src/app/core/auth/permission.guard.ts) + `data: { permission: '...' }` in [`app.routes.ts`](src/iM.Cloud.Client/src/app/app.routes.ts). Permission must match BE `PermissionCodes` / `RequirePermission` on the API.
+- Treat `NavigationItemDto.label` as an **i18n translation key** (e.g. `nav.users`), not display text. Wire `TranslateService` when i18n is added.
+- Use generated [`NavigationClient`](clients/angular/im-cloud-api-client.ts) from `@im-cloud/api` — regenerate via `./scripts/generate-api-client.sh` after BE DTO changes.
+
+**Don't:**
+- Hardcode `MenuItem[]` in layout or feature components for app-wide navigation.
+- Rely on hiding menu entries alone — users can type URLs; always use `permissionGuard` on protected routes.
+- Edit `clients/angular/im-cloud-api-client.ts` by hand.
+
+## Adding a new navigable page
+
+1. **BE** — add entry to [`NavigationCatalog.cs`](src/iM.Cloud.Application/Navigation/NavigationCatalog.cs): `Key`, `Label` (`nav.*`), `Icon`, `Path`, `Order`, `RequiredPermission` (or `null` for public).
+2. **FE route** — add lazy route in `app.routes.ts` with `canActivate: [permissionGuard]` and `data.permission` matching the catalog permission.
+3. **FE i18n** — add `nav.*` label key (when translation files exist).
+4. Regenerate API client if `NavigationItemDto` shape changes.
+
+## Permission alignment
+
+| Catalog permission | Example path | API guard |
+|--------------------|--------------|-----------|
+| `users.read` | `/admin/users` | `RequirePermission(UsersRead)` |
+| `roles.manage` | `/admin/roles` | `RequirePermission(RolesManage)` |
+| `groups.read` | `/admin/groups` | `RequirePermission(GroupsRead)` |
+
+Admin role has all permissions → sees all catalog items. Limited users see and access only matching items.
+
+## Checklist (agent)
+
+- New admin screen → BE catalog row + FE route + `permissionGuard` + same permission string as BE.
+- Layout/menu work → use `NavigationService`, not local `menuItems` arrays.
+- After login/navigation API change → verify menubar and direct URL both respect permissions.

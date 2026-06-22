@@ -4,7 +4,7 @@ import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { providePrimeNG } from 'primeng/config';
 import Aura from '@primeng/themes/aura';
-import { MessageService } from 'primeng/api';
+import { ConfirmationService, MessageService } from 'primeng/api';
 import { API_BASE_URL } from '@im-cloud/api';
 
 import { routes } from './app.routes';
@@ -18,6 +18,7 @@ export const appConfig: ApplicationConfig = {
     provideZoneChangeDetection({ eventCoalescing: true }),
     provideRouter(routes),
     MessageService,
+    ConfirmationService,
     provideHttpClient(withInterceptors([jwtInterceptor, errorNotificationInterceptor])),
     { provide: API_BASE_URL, useValue: environment.apiUrl },
     {

@@ -1,0 +1,55 @@
+<p-dialog
+  [header]="dialogHeader"
+  [visible]="visible()"
+  (visibleChange)="visible.set($event)"
+  [modal]="true"
+  [closable]="!loading()"
+  [draggable]="false"
+  [style]="{ width: '28rem' }"
+  (onHide)="close()"
+>
+  <form class="role-form" [formGroup]="form" (ngSubmit)="submit()">
+    <label for="role-name">Name</label>
+    <input
+      pInputText
+      id="role-name"
+      type="text"
+      formControlName="name"
+      autocomplete="off"
+      class="full-width"
+    />
+
+    <label for="role-description">Description</label>
+    <textarea
+      pTextarea
+      id="role-description"
+      formControlName="description"
+      rows="3"
+      class="full-width"
+    ></textarea>
+
+    @if (isEdit) {
+      <div class="role-form__active">
+        <label for="role-active">Active</label>
+        <p-toggleswitch inputId="role-active" formControlName="active" />
+      </div>
+    }
+
+    <div class="role-form__actions">
+      <p-button
+        type="button"
+        label="Cancel"
+        severity="secondary"
+        [text]="true"
+        [disabled]="loading()"
+        (onClick)="close()"
+      />
+      <p-button
+        type="submit"
+        [label]="isEdit ? 'Save' : 'Create'"
+        [loading]="loading()"
+        [disabled]="form.invalid || loading()"
+      />
+    </div>
+  </form>
+</p-dialog>

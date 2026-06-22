@@ -2,7 +2,7 @@ import { HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { MessageService } from 'primeng/api';
 import { catchError, throwError } from 'rxjs';
-import { parseApiErrors } from './api-error.parser';
+import { parseApiErrors, resolveErrorBody } from './api-error.parser';
 
 export const SKIP_ERROR_TOAST_HEADER = 'X-Skip-Error-Toast';
 
@@ -33,16 +33,19 @@ function shouldShowToast(req: Parameters<HttpInterceptorFn>[0], error: HttpError
 }
 
 function showErrorToasts(messages: MessageService, error: HttpErrorResponse): void {
-  const parsed = parseApiErrors(error.error, error.status);
+  void resolveErrorBody(error.error).then((body) => {
+    const parsed = parseApiErrors(body, error.status);
 
-  for (const item of parsed) {
-    messages.add({
-      severity: 'error',
-      summary: item.displayKey,
-      detail: item.errorMessage && item.errorMessage !== item.displayKey
-        ? item.errorMessage
-        : undefined,
-      life: 5000,
-    });
-  }
+    for (const item of parsed) {
+      messages.add({
+        severity: 'error',
+        summary: item.displayKey,
+        detail:
+          item.errorMessage && item.errorMessage !== item.displayKey
+            ? item.errorMessage
+            : undefined,
+        life: 5000,
+      });
+    }
+  });
 }

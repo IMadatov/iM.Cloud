@@ -1,5 +1,5 @@
 <div class="layout">
-  <p-menubar [model]="menuItems">
+  <p-menubar [model]="(menuItems$ | async) ?? []">
     <ng-template #start>
       <span class="brand">iM.Cloud</span>
     </ng-template>

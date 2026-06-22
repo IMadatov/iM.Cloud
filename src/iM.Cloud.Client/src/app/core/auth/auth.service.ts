@@ -13,11 +13,13 @@ import {
 } from 'rxjs';
 import { AuthApiService } from './auth-api.service';
 import { AUTH_STORAGE_KEYS } from './auth.types';
+import { NavigationService } from '../navigation/navigation.service';
 import { LoginResponse, MeResponse, UserDto } from '@im-cloud/api';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly authApi = inject(AuthApiService);
+  private readonly navigation = inject(NavigationService);
   private readonly router = inject(Router);
 
   private readonly currentUserSubject = new BehaviorSubject<UserDto | null>(null);
@@ -58,6 +60,7 @@ export class AuthService {
 
     return this.authApi.refresh(refreshToken).pipe(
       tap((response) => this.storeSession(response)),
+      switchMap(() => this.loadMe()),
       map(() => undefined),
       catchError((error) => {
         this.clearSession();
@@ -72,7 +75,18 @@ export class AuthService {
         this.meSubject.next(me);
         this.currentUserSubject.next(me.user ?? null);
       }),
+      switchMap((me) => this.navigation.load().pipe(map(() => me))),
     );
+  }
+
+  hasPermission(permission: string): boolean {
+    const permissions = this.meSubject.value?.permissions;
+    if (!permissions?.length) {
+      return false;
+    }
+
+    const normalized = permission.toLowerCase();
+    return permissions.some((p) => p.toLowerCase() === normalized);
   }
 
   logout(): void {
@@ -109,5 +123,6 @@ export class AuthService {
     localStorage.removeItem(AUTH_STORAGE_KEYS.refreshToken);
     this.currentUserSubject.next(null);
     this.meSubject.next(null);
+    this.navigation.clear();
   }
 }

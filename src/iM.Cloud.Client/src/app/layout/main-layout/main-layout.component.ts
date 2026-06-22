@@ -1,10 +1,10 @@
 import { AsyncPipe } from '@angular/common';
 import { Component, inject } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
-import { MenuItem } from 'primeng/api';
 import { Button } from 'primeng/button';
 import { Menubar } from 'primeng/menubar';
 import { AuthService } from '../../core/auth/auth.service';
+import { NavigationService } from '../../core/navigation/navigation.service';
 
 @Component({
   selector: 'app-main-layout',
@@ -14,14 +14,9 @@ import { AuthService } from '../../core/auth/auth.service';
 })
 export class MainLayoutComponent {
   readonly auth = inject(AuthService);
+  readonly navigation = inject(NavigationService);
 
-  readonly menuItems: MenuItem[] = [
-    {
-      label: 'Home',
-      icon: 'pi pi-home',
-      routerLink: '/',
-    },
-  ];
+  readonly menuItems$ = this.navigation.menuItems$;
 
   logout(): void {
     this.auth.logout();

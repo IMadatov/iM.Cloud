@@ -1,0 +1,67 @@
+<p-dialog
+  [header]="dialogHeader"
+  [visible]="visible()"
+  (visibleChange)="visible.set($event)"
+  [modal]="true"
+  [closable]="!loading()"
+  [draggable]="false"
+  [style]="{ width: '28rem' }"
+  (onHide)="close()"
+>
+  <form class="user-form" [formGroup]="form" (ngSubmit)="submit()">
+    <label for="user-email">Email</label>
+    <input
+      pInputText
+      id="user-email"
+      type="email"
+      formControlName="email"
+      autocomplete="off"
+      class="full-width"
+    />
+
+    <label for="user-display-name">Display name</label>
+    <input
+      pInputText
+      id="user-display-name"
+      type="text"
+      formControlName="displayName"
+      autocomplete="off"
+      class="full-width"
+    />
+
+    @if (!isEdit) {
+      <label for="user-password">Password</label>
+      <p-password
+        inputId="user-password"
+        formControlName="password"
+        [feedback]="false"
+        [toggleMask]="true"
+        autocomplete="new-password"
+        styleClass="full-width"
+        inputStyleClass="full-width"
+      />
+    }
+
+    <div class="user-form__active">
+      <label for="user-active">Active</label>
+      <p-toggleswitch inputId="user-active" formControlName="active" />
+    </div>
+
+    <div class="user-form__actions">
+      <p-button
+        type="button"
+        label="Cancel"
+        severity="secondary"
+        [text]="true"
+        [disabled]="loading()"
+        (onClick)="close()"
+      />
+      <p-button
+        type="submit"
+        [label]="isEdit ? 'Save' : 'Create'"
+        [loading]="loading()"
+        [disabled]="form.invalid || loading()"
+      />
+    </div>
+  </form>
+</p-dialog>
