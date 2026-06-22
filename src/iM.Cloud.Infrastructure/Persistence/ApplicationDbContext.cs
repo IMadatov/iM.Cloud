@@ -20,6 +20,8 @@ public class ApplicationDbContext
     public DbSet<Group> Groups => Set<Group>();
     public DbSet<UserGroup> UserGroups => Set<UserGroup>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<StorageObject> StorageObjects => Set<StorageObject>();
+    public DbSet<FileItem> FileItems => Set<FileItem>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -101,6 +103,40 @@ public class ApplicationDbContext
                 .WithMany()
                 .HasForeignKey(ug => ug.GroupId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+
+        builder.Entity<StorageObject>(entity =>
+        {
+            entity.ToTable("StorageObjects");
+            entity.HasKey(s => s.Id);
+            entity.HasIndex(s => s.StorageKey).IsUnique();
+            entity.Property(s => s.StorageKey).HasMaxLength(500);
+            entity.Property(s => s.ContentType).HasMaxLength(200);
+            entity.Property(s => s.Sha256).HasMaxLength(128);
+            entity.Property(s => s.CreatedBy).HasMaxLength(200);
+            entity.Property(s => s.LastModifiedBy).HasMaxLength(200);
+        });
+
+        builder.Entity<FileItem>(entity =>
+        {
+            entity.ToTable("FileItems");
+            entity.HasKey(f => f.Id);
+            entity.HasIndex(f => new { f.OwnerId, f.ParentId, f.Name })
+                .IsUnique()
+                .HasFilter("Active = 1");
+            entity.HasIndex(f => f.StorageObjectId);
+            entity.Property(f => f.Name).HasMaxLength(255);
+            entity.Property(f => f.CreatedBy).HasMaxLength(200);
+            entity.Property(f => f.LastModifiedBy).HasMaxLength(200);
+            entity.HasOne(f => f.StorageObject)
+                .WithMany()
+                .HasForeignKey(f => f.StorageObjectId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<FileItem>()
+                .WithMany()
+                .HasForeignKey(f => f.ParentId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         builder.Entity<RefreshToken>(entity =>

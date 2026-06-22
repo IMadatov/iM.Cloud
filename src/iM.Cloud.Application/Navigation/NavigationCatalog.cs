@@ -15,6 +15,7 @@ public static class NavigationCatalog
     public static IReadOnlyList<NavigationCatalogEntry> Items { get; } =
     [
         new("home", "nav.home", "pi pi-home", "/", 0),
+        new("files", "nav.files", "pi pi-folder", "/files", 5),
         new("users", "nav.users", "pi pi-users", "/admin/users", 10, PermissionCodes.UsersRead),
         new("roles", "nav.roles", "pi pi-shield", "/admin/roles", 20, PermissionCodes.RolesManage),
         new("groups", "nav.groups", "pi pi-sitemap", "/admin/groups", 30, PermissionCodes.GroupsRead),

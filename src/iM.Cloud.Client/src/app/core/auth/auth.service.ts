@@ -3,10 +3,12 @@ import { Router } from '@angular/router';
 import {
   BehaviorSubject,
   catchError,
+  finalize,
   firstValueFrom,
   map,
   Observable,
   of,
+  shareReplay,
   switchMap,
   tap,
   throwError,
@@ -24,6 +26,7 @@ export class AuthService {
 
   private readonly currentUserSubject = new BehaviorSubject<UserDto | null>(null);
   private readonly meSubject = new BehaviorSubject<MeResponse | null>(null);
+  private refreshInFlight$: Observable<void> | null = null;
 
   readonly currentUser$ = this.currentUserSubject.asObservable();
   readonly me$ = this.meSubject.asObservable();
@@ -52,13 +55,17 @@ export class AuthService {
   }
 
   refreshToken(): Observable<void> {
+    if (this.refreshInFlight$) {
+      return this.refreshInFlight$;
+    }
+
     const refreshToken = this.getRefreshToken();
     if (!refreshToken) {
       this.clearSession();
       return throwError(() => new Error('No refresh token'));
     }
 
-    return this.authApi.refresh(refreshToken).pipe(
+    this.refreshInFlight$ = this.authApi.refresh(refreshToken).pipe(
       tap((response) => this.storeSession(response)),
       switchMap(() => this.loadMe()),
       map(() => undefined),
@@ -66,10 +73,20 @@ export class AuthService {
         this.clearSession();
         return throwError(() => error);
       }),
+      finalize(() => {
+        this.refreshInFlight$ = null;
+      }),
+      shareReplay(1),
     );
+
+    return this.refreshInFlight$;
   }
 
   loadMe(): Observable<MeResponse> {
+    if (!this.getAccessToken()) {
+      return throwError(() => new Error('No access token'));
+    }
+
     return this.authApi.me().pipe(
       tap((me) => {
         this.meSubject.next(me);

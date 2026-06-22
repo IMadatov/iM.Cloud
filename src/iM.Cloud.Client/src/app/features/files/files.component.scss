@@ -1,0 +1,39 @@
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.folder-link {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0;
+  font: inherit;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.row-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.w-full {
+  width: 100%;
+}

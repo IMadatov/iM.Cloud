@@ -1367,6 +1367,197 @@
         ]
       }
     },
+    "/api/files": {
+      "get": {
+        "tags": [
+          "Files"
+        ],
+        "operationId": "Files_List",
+        "parameters": [
+          {
+            "name": "parentId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "guid",
+              "nullable": true
+            },
+            "x-position": 1
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FileItemDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      }
+    },
+    "/api/files/folders": {
+      "post": {
+        "tags": [
+          "Files"
+        ],
+        "operationId": "Files_CreateFolder",
+        "requestBody": {
+          "x-name": "request",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateFolderRequest"
+              }
+            }
+          },
+          "required": true,
+          "x-position": 1
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileItemDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      }
+    },
+    "/api/files/upload": {
+      "post": {
+        "tags": [
+          "Files"
+        ],
+        "operationId": "Files_Upload",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "parentId": {
+                    "type": "string",
+                    "format": "guid",
+                    "nullable": true
+                  },
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "nullable": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileItemDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      }
+    },
+    "/api/files/{id}": {
+      "delete": {
+        "tags": [
+          "Files"
+        ],
+        "operationId": "Files_Delete",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "guid"
+            },
+            "x-position": 1
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      }
+    },
+    "/api/files/{id}/download": {
+      "get": {
+        "tags": [
+          "Files"
+        ],
+        "operationId": "Files_Download",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "guid"
+            },
+            "x-position": 1
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      }
+    },
     "/api/navigation/my": {
       "get": {
         "tags": [
@@ -1862,6 +2053,50 @@
             "items": {
               "type": "string"
             }
+          }
+        }
+      },
+      "FileItemDto": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "guid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "isFolder": {
+            "type": "boolean"
+          },
+          "parentId": {
+            "type": "string",
+            "format": "guid",
+            "nullable": true
+          },
+          "size": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "contentType": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "CreateFolderRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "parentId": {
+            "type": "string",
+            "format": "guid",
+            "nullable": true
           }
         }
       },

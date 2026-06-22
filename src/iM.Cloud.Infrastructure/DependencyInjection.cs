@@ -5,6 +5,9 @@ using iM.Cloud.Infrastructure.Auth;
 using iM.Cloud.Infrastructure.Authorization;
 using iM.Cloud.Infrastructure.Common;
 using iM.Cloud.Infrastructure.Identity;
+using iM.Cloud.Application.Files;
+using iM.Cloud.Infrastructure.Files;
+using iM.Cloud.Infrastructure.Storage;
 using iM.Cloud.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
@@ -22,6 +25,7 @@ public static class DependencyInjection
         IConfiguration configuration)
     {
         services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
+        services.Configure<MinioOptions>(configuration.GetSection(MinioOptions.SectionName));
 
         services.AddDbContext<ApplicationDbContext>(options =>
             options.UseSqlite(configuration.GetConnectionString("DefaultConnection")));
@@ -48,6 +52,8 @@ public static class DependencyInjection
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IPermissionResolver, PermissionResolver>();
         services.AddScoped<IPermissionCache, PermissionCacheService>();
+        services.AddSingleton<IFileStorageService, MinioFileStorageService>();
+        services.AddScoped<IFileService, FileService>();
 
         var jwt = configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>()
             ?? throw new InvalidOperationException("Jwt configuration is missing.");

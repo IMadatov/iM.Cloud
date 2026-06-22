@@ -4,6 +4,7 @@ import { guestGuard } from './core/auth/guest.guard';
 import { permissionGuard } from './core/auth/permission.guard';
 import { LoginComponent } from './features/auth/login/login.component';
 import { MainLayoutComponent } from './layout/main-layout/main-layout.component';
+import { filesPathMatcher } from './features/files/files-route.matcher';
 
 export const routes: Routes = [
   {
@@ -21,6 +22,13 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/dashboard/dashboard.component').then(
             (m) => m.DashboardComponent,
+          ),
+      },
+      {
+        matcher: filesPathMatcher,
+        loadComponent: () =>
+          import('./features/files/files.component').then(
+            (m) => m.FilesComponent,
           ),
       },
       {

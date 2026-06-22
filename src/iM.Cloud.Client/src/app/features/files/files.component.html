@@ -1,0 +1,76 @@
+<p-card header="Files">
+  <div class="toolbar">
+    <p-breadcrumb [model]="breadcrumbModel()" [home]="undefined" />
+    <div class="actions">
+      <p-button label="New folder" icon="pi pi-folder-plus" (onClick)="showCreateFolderDialog()" />
+      <input #fileInput type="file" hidden (change)="onFileSelected($event)" />
+      <p-button
+        label="Upload"
+        icon="pi pi-upload"
+        [loading]="loading()"
+        (onClick)="fileInput.click()"
+      />
+    </div>
+  </div>
+
+  <p-table [value]="items()" [loading]="loading()" dataKey="id" styleClass="p-datatable-sm">
+    <ng-template pTemplate="header">
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Size</th>
+        <th style="width: 8rem">Actions</th>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="body" let-item>
+      <tr>
+        <td>
+          @if (item.isFolder) {
+            <button type="button" class="folder-link" (click)="openFolder(item)">
+              <i class="pi pi-folder"></i>
+              {{ item.name }}
+            </button>
+          } @else {
+            <span><i class="pi pi-file"></i> {{ item.name }}</span>
+          }
+        </td>
+        <td>
+          <p-tag [value]="item.isFolder ? 'Folder' : 'File'" [severity]="item.isFolder ? 'info' : 'secondary'" />
+        </td>
+        <td>{{ formatSize(item.size) }}</td>
+        <td>
+          <div class="row-actions">
+            @if (!item.isFolder) {
+              <p-button icon="pi pi-download" [text]="true" (onClick)="download(item)" />
+            }
+            <p-button
+              icon="pi pi-trash"
+              [text]="true"
+              severity="danger"
+              (onClick)="confirmDelete(item)"
+            />
+          </div>
+        </td>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="emptymessage">
+      <tr>
+        <td colspan="4">This folder is empty.</td>
+      </tr>
+    </ng-template>
+  </p-table>
+</p-card>
+
+<p-dialog
+  header="New folder"
+  [visible]="folderDialogVisible()"
+  (visibleChange)="folderDialogVisible.set($event)"
+  [modal]="true"
+  [style]="{ width: '24rem' }"
+>
+  <input pInputText class="w-full" [ngModel]="newFolderName()" (ngModelChange)="newFolderName.set($event)" placeholder="Folder name" />
+  <ng-template pTemplate="footer">
+    <p-button label="Cancel" [text]="true" (onClick)="folderDialogVisible.set(false)" />
+    <p-button label="Create" (onClick)="createFolder()" />
+  </ng-template>
+</p-dialog>

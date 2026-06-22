@@ -11,6 +11,8 @@ public interface IApplicationDbContext
     DbSet<Group> Groups { get; }
     DbSet<UserGroup> UserGroups { get; }
     DbSet<RefreshToken> RefreshTokens { get; }
+    DbSet<StorageObject> StorageObjects { get; }
+    DbSet<FileItem> FileItems { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

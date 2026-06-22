@@ -109,6 +109,30 @@ public static class ErrorKeys
         public const string MembershipNotFoundMessage = "groups.membership_not_found.message";
     }
 
+    public static class Files
+    {
+        public const string NotFound = "files.not_found";
+        public const string NotFoundMessage = "files.not_found.message";
+
+        public const string NameRequired = "files.name_required";
+        public const string NameRequiredMessage = "files.name_required.message";
+
+        public const string InvalidName = "files.invalid_name";
+        public const string InvalidNameMessage = "files.invalid_name.message";
+
+        public const string ParentNotFolder = "files.parent_not_folder";
+        public const string ParentNotFolderMessage = "files.parent_not_folder.message";
+
+        public const string NotAFile = "files.not_a_file";
+        public const string NotAFileMessage = "files.not_a_file.message";
+
+        public const string NameExists = "files.name_exists";
+        public const string NameExistsMessage = "files.name_exists.message";
+
+        public const string StorageFailed = "files.storage_failed";
+        public const string StorageFailedMessage = "files.storage_failed.message";
+    }
+
     public static class Server
     {
         public const string Unhandled = "errors.unhandled";

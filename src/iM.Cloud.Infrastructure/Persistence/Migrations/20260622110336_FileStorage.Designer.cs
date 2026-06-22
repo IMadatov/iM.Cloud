@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using iM.Cloud.Infrastructure.Persistence;
 
@@ -10,9 +11,11 @@ using iM.Cloud.Infrastructure.Persistence;
 namespace iM.Cloud.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260622110336_FileStorage")]
+    partial class FileStorage
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "9.0.9");
@@ -163,8 +166,7 @@ namespace iM.Cloud.Infrastructure.Persistence.Migrations
                     b.HasIndex("StorageObjectId");
 
                     b.HasIndex("OwnerId", "ParentId", "Name")
-                        .IsUnique()
-                        .HasFilter("Active = 1");
+                        .IsUnique();
 
                     b.ToTable("FileItems", (string)null);
                 });
