@@ -13,3 +13,5 @@ dotnet msbuild "$API_PROJECT" -p:GenerateApiClient=true -v:minimal
 echo "Done."
 echo "  OpenAPI:  openapi/iM.Cloud.openapi.json"
 echo "  Client:   clients/angular/im-cloud-api-client.ts"
+
+bash "$ROOT/scripts/link-api-client-deps.sh"

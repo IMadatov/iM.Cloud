@@ -23,6 +23,8 @@ public static class DataSeeder
         var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<ApplicationDbContext>>();
 
+        EnsureSqliteDirectory(configuration.GetConnectionString("DefaultConnection"));
+
         await db.Database.MigrateAsync();
 
         await SeedPermissionsAsync(db);
@@ -122,4 +124,19 @@ public static class DataSeeder
     private static string FormatPermissionName(string code) =>
         string.Join(' ', code.Split('.', StringSplitOptions.RemoveEmptyEntries)
             .Select(part => char.ToUpper(part[0]) + part[1..]));
+
+    private static void EnsureSqliteDirectory(string? connectionString)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString))
+            return;
+
+        var builder = new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder(connectionString);
+        if (string.IsNullOrWhiteSpace(builder.DataSource) || builder.DataSource == ":memory:")
+            return;
+
+        var dbPath = Path.GetFullPath(builder.DataSource);
+        var directory = Path.GetDirectoryName(dbPath);
+        if (!string.IsNullOrEmpty(directory))
+            Directory.CreateDirectory(directory);
+    }
 }

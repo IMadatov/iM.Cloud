@@ -9,6 +9,16 @@
   margin-right: 1rem;
 }
 
+.user-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.user-name {
+  font-weight: 500;
+}
+
 .content {
   flex: 1;
   padding: 1.5rem;

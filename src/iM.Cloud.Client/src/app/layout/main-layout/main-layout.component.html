@@ -3,6 +3,14 @@
     <ng-template #start>
       <span class="brand">iM.Cloud</span>
     </ng-template>
+    <ng-template #end>
+      <div class="user-bar">
+        @if (auth.currentUser$ | async; as user) {
+          <span class="user-name">{{ user.displayName }}</span>
+        }
+        <p-button label="Logout" icon="pi pi-sign-out" severity="secondary" (onClick)="logout()" />
+      </div>
+    </ng-template>
   </p-menubar>
 
   <main class="content">

@@ -1,0 +1,20 @@
+{
+  "name": "@im-cloud/api",
+  "version": "0.0.0",
+  "private": true,
+  "description": "NSwag-generated Angular API client — do not edit by hand; regenerate via scripts/generate-api-client.sh",
+  "types": "./im-cloud-api-client.ts",
+  "main": "./im-cloud-api-client.ts",
+  "exports": {
+    ".": {
+      "types": "./im-cloud-api-client.ts",
+      "default": "./im-cloud-api-client.ts"
+    }
+  },
+  "peerDependencies": {
+    "@angular/common": "^19.0.0",
+    "@angular/core": "^19.0.0",
+    "rxjs": "^7.8.0",
+    "tslib": "^2.3.0"
+  }
+}

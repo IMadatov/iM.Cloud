@@ -2,7 +2,14 @@
 
 TypeScript client generated from the backend OpenAPI document via [NSwag](https://github.com/RicoSuter/NSwag).
 
-## Regenerate (backend team)
+**Do not edit generated files by hand.** After backend API changes, regenerate with the script below.
+
+Generated artifacts in this folder:
+
+- `im-cloud-api-client.ts` — Angular `HttpClient` services and DTOs (NSwag output)
+- `api-client.extension.ts` — merged into the client on regenerate (keep minimal; no duplicate exports)
+
+## Regenerate
 
 From the repository root:
 
@@ -20,42 +27,14 @@ dotnet msbuild src/iM.Cloud.API/iM.Cloud.API.csproj -p:GenerateApiClient=true
 Outputs:
 
 - `openapi/iM.Cloud.openapi.json` — OpenAPI 3 spec
-- `clients/angular/im-cloud-api-client.ts` — Angular `HttpClient` services and DTOs
+- `clients/angular/im-cloud-api-client.ts` — Angular client
 
-## Use in Angular (frontend team)
+## Use in `iM.Cloud.Client`
 
-1. Copy `im-cloud-api-client.ts` and `api-client.extension.ts` into your Angular project (e.g. `src/app/api/`).
-2. Register `HttpClient` and provide the API base URL:
-
-```typescript
-import { API_BASE_URL } from './api/api-client.extension';
-import { AdminGroupsClient } from './api/im-cloud-api-client';
-
-bootstrapApplication(AppComponent, {
-  providers: [
-    provideHttpClient(),
-    { provide: API_BASE_URL, useValue: 'https://localhost:5001' },
-    AdminGroupsClient,
-    // ... other generated clients
-  ],
-});
-```
-
-3. Inject clients in components/services:
+The Angular app depends on this package via npm (`package.json` → `"@im-cloud/api": "file:../../clients/angular"`). After regenerating, no copy step is required.
 
 ```typescript
-constructor(private groups: AdminGroupsClient) {}
-
-loginAndList() {
-  return this.groups.getAll({ first: 0, rows: 10 });
-}
+import { API_BASE_URL, AuthClient, AdminGroupsClient } from '@im-cloud/api';
 ```
 
-4. After login, set the JWT on requests (example interceptor):
-
-```typescript
-const token = localStorage.getItem('accessToken');
-const headers = token ? { Authorization: `Bearer ${token}` } : {};
-```
-
-Regenerate the client whenever backend API contracts change.
+Provide `API_BASE_URL` and `HttpClient` in `app.config.ts`. Wrap generated clients in app services when you need extra logic — never modify `im-cloud-api-client.ts` directly.

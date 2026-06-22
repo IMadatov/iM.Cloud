@@ -1,0 +1,14 @@
+---
+description: NSwag generated API client — never edit by hand
+globs: clients/angular/im-cloud-api-client.ts, src/iM.Cloud.Client/node_modules/@im-cloud/api/**
+alwaysApply: false
+---
+
+# NSwag generated client
+
+`clients/angular/im-cloud-api-client.ts` is **auto-generated** by NSwag (`./scripts/generate-api-client.sh`). **Never edit it manually.**
+
+- Regenerate after backend API/DTO changes.
+- In the Angular app, import from `@im-cloud/api` (npm `file:../../clients/angular`).
+- Add app-specific logic in wrappers under `src/app/core/` (e.g. `auth-api.service.ts`), not in the generated file.
+- `api-client.extension.ts` is merged on regenerate — keep it minimal (no duplicate exports).

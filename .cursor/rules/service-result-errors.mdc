@@ -1,0 +1,70 @@
+---
+description: BaseCrud ServiceResult/ServiceError with separate title and message translation keys
+alwaysApply: true
+---
+
+# BaseCrud ServiceResult errors and FE notifications
+
+Use **BaseCrud** types for all API failures — do not invent parallel error models.
+
+| BaseCrud type | Namespace | Use for |
+|---------------|-----------|---------|
+| `ServiceResult` / `ServiceResult<T>` | `BaseCrud.ServiceResults` | Service return type |
+| `ServiceError` | `BaseCrud.Errors` | Generic / server errors |
+| `ValidationServiceError` | `BaseCrud.Errors` | 400 validation |
+| `NotFoundServiceError` | `BaseCrud.Errors` | 404 not found |
+
+Controllers map via `ApiControllerBase.FromServiceResult` → `StatusCode(statusCode, actionResult.Errors)`.
+
+## Two translation keys per error
+
+`ErrorKey` and `ErrorMessage` are **both translation keys** (never English prose):
+
+| JSON field | Role in UI | `ErrorKeys` suffix |
+|------------|------------|-------------------|
+| `errorKey` | Notification **title** / summary | base name (e.g. `Groups.NotFound`) |
+| `errorMessage` | Notification **detail** / body | `*Message` (e.g. `Groups.NotFoundMessage`) |
+
+```json
+[
+  {
+    "errorMessage": "groups.not_found.message",
+    "errorKey": "groups.not_found",
+    "description": null
+  }
+]
+```
+
+### BaseCrud ctor order
+
+```csharp
+// ValidationServiceError(errorMessage, errorKey)
+// NotFoundServiceError(errorMessage, errorKey)
+// ServiceError(errorMessage, errorKey, description)
+
+return NotFound(new NotFoundServiceError(
+    ErrorKeys.Groups.NotFoundMessage,
+    ErrorKeys.Groups.NotFound));
+
+return BadRequest(new ValidationServiceError(
+    ErrorKeys.Validation.EmailExistsMessage,
+    ErrorKeys.Validation.EmailExists));
+```
+
+Define pairs in `iM.Cloud.Application/Common/ErrorKeys.cs`. Add both keys to FE i18n.
+
+### Auth handlers
+
+Migrate from `{ error: "plain text" }` to `ServiceError[]` with separate title/message keys.
+
+## Frontend
+
+- `error-notification.interceptor`: `summary` = `translate(errorKey)`, `detail` = `translate(errorMessage)`.
+- Never show raw keys to users.
+- `X-Skip-Error-Toast: true` for inline handling (login).
+
+## Checklist (agent)
+
+**BE:** add `Foo` + `FooMessage` to `ErrorKeys` → `new NotFoundServiceError(FooMessage, Foo)` → FE i18n for both.
+
+**FE:** translate both fields — they are always keys, not fallback English.

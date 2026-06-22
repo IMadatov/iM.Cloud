@@ -1,15 +1,4 @@
 services:
-  sqlserver:
-    image: mcr.microsoft.com/mssql/server:2022-latest
-    ports:
-      - "1433:1433"
-    environment:
-      ACCEPT_EULA: "Y"
-      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD}
-    volumes:
-      - sqlserver_data:/var/opt/mssql
-    restart: unless-stopped
-
   minio:
     image: minio/minio:latest
     ports:
@@ -39,5 +28,4 @@ services:
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
 
 volumes:
-  sqlserver_data:
   minio_data:

@@ -1,7 +1,7 @@
-using System.Text.RegularExpressions;
 using BaseCrud.Abstractions.Entities;
 using BaseCrud.Errors;
 using BaseCrud.ServiceResults;
+using iM.Cloud.Application.Common;
 using iM.Cloud.Application.Common.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 
@@ -42,11 +42,12 @@ public abstract class ApiControllerBase : ControllerBase
 
             return StatusCode(actionResult.StatusCode, actionResult.Errors);
         }
-        catch (Exception e)
+        catch (Exception)
         {
             return StatusCode(500, new ServiceError(
-                e.Message,
-                ToErrorKey(e)));
+                ErrorKeys.Server.UnhandledMessage,
+                ErrorKeys.Server.Unhandled,
+                null));
         }
     }
 
@@ -61,17 +62,12 @@ public abstract class ApiControllerBase : ControllerBase
 
             return StatusCode(actionResult.StatusCode, actionResult.Errors);
         }
-        catch (Exception e)
+        catch (Exception)
         {
             return StatusCode(500, new ServiceError(
-                e.Message,
-                ToErrorKey(e)));
+                ErrorKeys.Server.UnhandledMessage,
+                ErrorKeys.Server.Unhandled,
+                null));
         }
-    }
-
-    private static string ToErrorKey(Exception exception)
-    {
-        var name = Regex.Replace(exception.GetType().Name, "([a-z])([A-Z])", "$1_$2").ToLowerInvariant();
-        return name.Replace("exception", "error");
     }
 }

@@ -294,6 +294,7 @@ FakesAssemblies/
 node_modules/
 dist/
 .angular/
+clients/angular/node_modules/
 
 # Visual Studio 6 build log
 *.plg
@@ -482,3 +483,7 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# SQLite database (self-hosted metadata)
+data/*.db
+data/*.db-*

@@ -3,6 +3,7 @@ using BaseCrud.Abstractions.Entities;
 using BaseCrud.EntityFrameworkCore;
 using BaseCrud.Errors;
 using BaseCrud.ServiceResults;
+using iM.Cloud.Application.Common;
 using iM.Cloud.Application.Admin.Permissions;
 using iM.Cloud.Domain.Dtos.Permissions;
 using iM.Cloud.Domain.Entities;
@@ -32,7 +33,9 @@ public sealed class PermissionService
             return ServiceResult.FromFailed(entityResult).ToType<PermissionDetailsDto?>();
 
         if (entityResult.Result is null)
-            return NotFound(new NotFoundServiceError());
+            return NotFound(new NotFoundServiceError(
+                ErrorKeys.Db.NotFoundByIdMessage,
+                ErrorKeys.Db.NotFoundById));
 
         return PermissionMappings.ToDetailsDto(entityResult.Result);
     }
@@ -42,26 +45,34 @@ public sealed class PermissionService
         IUserProfile<Guid>? userProfile,
         CancellationToken cancellationToken = default)
         => Task.FromResult<ServiceResult<PermissionDetailsDto>>(
-            Forbidden(new ValidationServiceError("Permissions are managed by seed data.", "permission.read_only")));
+            Forbidden(new ValidationServiceError(
+                ErrorKeys.Permissions.ReadOnlyMessage,
+                ErrorKeys.Permissions.ReadOnly)));
 
     public override Task<ServiceResult<Permission>> InsertAsync(
         Permission entity,
         IUserProfile<Guid>? userProfile,
         CancellationToken cancellationToken = default)
         => Task.FromResult<ServiceResult<Permission>>(
-            Forbidden(new ValidationServiceError("Permissions are managed by seed data.", "permission.read_only")));
+            Forbidden(new ValidationServiceError(
+                ErrorKeys.Permissions.ReadOnlyMessage,
+                ErrorKeys.Permissions.ReadOnly)));
 
     public override Task<ServiceResult<PermissionDetailsDto>> UpdateAsync(
         PermissionDetailsDto entity,
         IUserProfile<Guid>? userProfile,
         CancellationToken cancellationToken = default)
         => Task.FromResult<ServiceResult<PermissionDetailsDto>>(
-            Forbidden(new ValidationServiceError("Permissions are managed by seed data.", "permission.read_only")));
+            Forbidden(new ValidationServiceError(
+                ErrorKeys.Permissions.ReadOnlyMessage,
+                ErrorKeys.Permissions.ReadOnly)));
 
     public override Task<ServiceResult<Permission>> UpdateAsync(
         Permission entity,
         IUserProfile<Guid>? userProfile,
         CancellationToken cancellationToken = default)
         => Task.FromResult<ServiceResult<Permission>>(
-            Forbidden(new ValidationServiceError("Permissions are managed by seed data.", "permission.read_only")));
+            Forbidden(new ValidationServiceError(
+                ErrorKeys.Permissions.ReadOnlyMessage,
+                ErrorKeys.Permissions.ReadOnly)));
 }

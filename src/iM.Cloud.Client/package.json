@@ -6,10 +6,12 @@
     "start": "ng serve",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
-    "test": "ng test"
+    "test": "ng test",
+    "postinstall": "bash ../../scripts/link-api-client-deps.sh"
   },
   "private": true,
   "dependencies": {
+    "@im-cloud/api": "file:../../clients/angular",
     "@angular/common": "^19.2.0",
     "@angular/compiler": "^19.2.0",
     "@angular/core": "^19.2.0",

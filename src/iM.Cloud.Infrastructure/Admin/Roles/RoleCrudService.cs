@@ -3,6 +3,7 @@ using BaseCrud.Abstractions.Entities;
 using BaseCrud.EntityFrameworkCore;
 using BaseCrud.Errors;
 using BaseCrud.ServiceResults;
+using iM.Cloud.Application.Common;
 using iM.Cloud.Application.Common.Interfaces;
 using iM.Cloud.Domain.Entities;
 using iM.Cloud.Infrastructure.Admin.Roles;
@@ -42,7 +43,9 @@ public sealed class RoleCrudService
     {
         var role = await _roleManager.FindByIdAsync(id.ToString());
         if (role is null)
-            return NotFound(new NotFoundServiceError());
+            return NotFound(new NotFoundServiceError(
+                ErrorKeys.Db.NotFoundByIdMessage,
+                ErrorKeys.Db.NotFoundById));
 
         return RoleMappings.ToDetailsDto(role);
     }
@@ -54,10 +57,14 @@ public sealed class RoleCrudService
     {
         var name = entity.Name?.Trim() ?? string.Empty;
         if (string.IsNullOrWhiteSpace(name))
-            return BadRequest(new ValidationServiceError("Role name is required.", "validation.name_required"));
+            return BadRequest(new ValidationServiceError(
+                ErrorKeys.Validation.NameRequiredMessage,
+                ErrorKeys.Validation.NameRequired));
 
         if (await _roleManager.RoleExistsAsync(name))
-            return Conflict(new ValidationServiceError("Role already exists.", "validation.role_exists"));
+            return Conflict(new ValidationServiceError(
+                ErrorKeys.Validation.RoleExistsMessage,
+                ErrorKeys.Validation.RoleExists));
 
         var role = new ApplicationRole
         {
@@ -74,8 +81,8 @@ public sealed class RoleCrudService
         if (!result.Succeeded)
         {
             return BadRequest(new ValidationServiceError(
-                string.Join("; ", result.Errors.Select(e => e.Description)),
-                "validation.role_create_failed"));
+                ErrorKeys.Validation.RoleCreateFailedMessage,
+                ErrorKeys.Validation.RoleCreateFailed));
         }
 
         return RoleMappings.ToDetailsDto(role);
@@ -88,7 +95,9 @@ public sealed class RoleCrudService
     {
         var role = await _roleManager.FindByIdAsync(entity.Id.ToString());
         if (role is null)
-            return NotFound(new NotFoundServiceError());
+            return NotFound(new NotFoundServiceError(
+                ErrorKeys.Db.NotFoundByIdMessage,
+                ErrorKeys.Db.NotFoundById));
 
         RoleMappings.ApplyDetails(role, entity);
         role.LastModifiedBy = userProfile?.UserName;
@@ -97,8 +106,8 @@ public sealed class RoleCrudService
         if (!result.Succeeded)
         {
             return BadRequest(new ValidationServiceError(
-                string.Join("; ", result.Errors.Select(e => e.Description)),
-                "validation.role_update_failed"));
+                ErrorKeys.Validation.RoleUpdateFailedMessage,
+                ErrorKeys.Validation.RoleUpdateFailed));
         }
 
         await _permissionCache.InvalidateUsersInRoleAsync(role.Id, cancellationToken);
@@ -112,13 +121,17 @@ public sealed class RoleCrudService
     {
         var role = await _roleManager.FindByIdAsync(roleId.ToString());
         if (role is null)
-            return NotFound(new NotFoundServiceError("Role not found."));
+            return NotFound(new NotFoundServiceError(
+                ErrorKeys.Roles.NotFoundMessage,
+                ErrorKeys.Roles.NotFound));
 
         var permission = await _db.Permissions
             .FirstOrDefaultAsync(p => p.Code == permissionCode, cancellationToken);
 
         if (permission is null)
-            return NotFound(new NotFoundServiceError("Permission not found."));
+            return NotFound(new NotFoundServiceError(
+                ErrorKeys.Roles.PermissionNotFoundMessage,
+                ErrorKeys.Roles.PermissionNotFound));
 
         var exists = await _db.RolePermissions
             .AnyAsync(rp => rp.RoleId == roleId && rp.PermissionId == permission.Id, cancellationToken);
@@ -142,7 +155,9 @@ public sealed class RoleCrudService
             .FirstOrDefaultAsync(rp => rp.RoleId == roleId && rp.PermissionId == permissionId, cancellationToken);
 
         if (entry is null)
-            return NotFound(new NotFoundServiceError("Role permission not found."));
+            return NotFound(new NotFoundServiceError(
+                ErrorKeys.Roles.PermissionLinkNotFoundMessage,
+                ErrorKeys.Roles.PermissionLinkNotFound));
 
         _db.RolePermissions.Remove(entry);
         await _db.SaveChangesAsync(cancellationToken);

@@ -3,6 +3,7 @@ using BaseCrud.Abstractions.Entities;
 using BaseCrud.EntityFrameworkCore;
 using BaseCrud.Errors;
 using BaseCrud.ServiceResults;
+using iM.Cloud.Application.Common;
 using iM.Cloud.Application.Common.Interfaces;
 using iM.Cloud.Domain.Entities;
 using iM.Cloud.Infrastructure.Admin.Users;
@@ -45,7 +46,9 @@ public sealed class UserCrudService
     {
         var user = await _userManager.FindByIdAsync(id.ToString());
         if (user is null)
-            return NotFound(new NotFoundServiceError());
+            return NotFound(new NotFoundServiceError(
+                ErrorKeys.Db.NotFoundByIdMessage,
+                ErrorKeys.Db.NotFoundById));
 
         return UserMappings.ToDetailsDto(user);
     }
@@ -57,14 +60,20 @@ public sealed class UserCrudService
     {
         var email = entity.Email?.Trim() ?? string.Empty;
         if (string.IsNullOrWhiteSpace(email))
-            return BadRequest(new ValidationServiceError("Email is required.", "validation.email_required"));
+            return BadRequest(new ValidationServiceError(
+                ErrorKeys.Validation.EmailRequiredMessage,
+                ErrorKeys.Validation.EmailRequired));
 
         if (string.IsNullOrWhiteSpace(entity.Password))
-            return BadRequest(new ValidationServiceError("Password is required.", "validation.password_required"));
+            return BadRequest(new ValidationServiceError(
+                ErrorKeys.Validation.PasswordRequiredMessage,
+                ErrorKeys.Validation.PasswordRequired));
 
         var existing = await _userManager.FindByEmailAsync(email);
         if (existing is not null)
-            return Conflict(new ValidationServiceError("Email already exists.", "validation.email_exists"));
+            return Conflict(new ValidationServiceError(
+                ErrorKeys.Validation.EmailExistsMessage,
+                ErrorKeys.Validation.EmailExists));
 
         var user = new ApplicationUser
         {
@@ -84,8 +93,8 @@ public sealed class UserCrudService
         if (!result.Succeeded)
         {
             return BadRequest(new ValidationServiceError(
-                string.Join("; ", result.Errors.Select(e => e.Description)),
-                "validation.user_create_failed"));
+                ErrorKeys.Validation.UserCreateFailedMessage,
+                ErrorKeys.Validation.UserCreateFailed));
         }
 
         return UserMappings.ToDetailsDto(user);
@@ -98,7 +107,9 @@ public sealed class UserCrudService
     {
         var user = await _userManager.FindByIdAsync(entity.Id.ToString());
         if (user is null)
-            return NotFound(new NotFoundServiceError());
+            return NotFound(new NotFoundServiceError(
+                ErrorKeys.Db.NotFoundByIdMessage,
+                ErrorKeys.Db.NotFoundById));
 
         UserMappings.ApplyDetails(user, entity);
         user.LastModifiedBy = userProfile?.UserName;
@@ -107,8 +118,8 @@ public sealed class UserCrudService
         if (!result.Succeeded)
         {
             return BadRequest(new ValidationServiceError(
-                string.Join("; ", result.Errors.Select(e => e.Description)),
-                "validation.user_update_failed"));
+                ErrorKeys.Validation.UserUpdateFailedMessage,
+                ErrorKeys.Validation.UserUpdateFailed));
         }
 
         _permissionCache.InvalidateUser(user.Id);
@@ -119,10 +130,14 @@ public sealed class UserCrudService
     {
         var user = await _userManager.FindByIdAsync(userId.ToString());
         if (user is null)
-            return NotFound(new NotFoundServiceError("User not found."));
+            return NotFound(new NotFoundServiceError(
+                ErrorKeys.Users.NotFoundMessage,
+                ErrorKeys.Users.NotFound));
 
         if (!await _roleManager.RoleExistsAsync(roleName))
-            return NotFound(new NotFoundServiceError("Role not found."));
+            return NotFound(new NotFoundServiceError(
+                ErrorKeys.Roles.NotFoundMessage,
+                ErrorKeys.Roles.NotFound));
 
         if (!await _userManager.IsInRoleAsync(user, roleName))
         {
@@ -130,8 +145,8 @@ public sealed class UserCrudService
             if (!result.Succeeded)
             {
                 return BadRequest(new ValidationServiceError(
-                    string.Join("; ", result.Errors.Select(e => e.Description)),
-                    "validation.role_assign_failed"));
+                    ErrorKeys.Validation.RoleAssignFailedMessage,
+                    ErrorKeys.Validation.RoleAssignFailed));
             }
         }
 
@@ -143,18 +158,22 @@ public sealed class UserCrudService
     {
         var user = await _userManager.FindByIdAsync(userId.ToString());
         if (user is null)
-            return NotFound(new NotFoundServiceError("User not found."));
+            return NotFound(new NotFoundServiceError(
+                ErrorKeys.Users.NotFoundMessage,
+                ErrorKeys.Users.NotFound));
 
         var role = await _roleManager.FindByIdAsync(roleId.ToString());
         if (role?.Name is null)
-            return NotFound(new NotFoundServiceError("Role not found."));
+            return NotFound(new NotFoundServiceError(
+                ErrorKeys.Roles.NotFoundMessage,
+                ErrorKeys.Roles.NotFound));
 
         var result = await _userManager.RemoveFromRoleAsync(user, role.Name);
         if (!result.Succeeded)
         {
             return BadRequest(new ValidationServiceError(
-                string.Join("; ", result.Errors.Select(e => e.Description)),
-                "validation.role_remove_failed"));
+                ErrorKeys.Validation.RoleRemoveFailedMessage,
+                ErrorKeys.Validation.RoleRemoveFailed));
         }
 
         _permissionCache.InvalidateUser(userId);
@@ -170,7 +189,9 @@ public sealed class UserCrudService
             .FirstOrDefaultAsync(p => p.Code == permissionCode, cancellationToken);
 
         if (permission is null)
-            return NotFound(new NotFoundServiceError("Permission not found."));
+            return NotFound(new NotFoundServiceError(
+                ErrorKeys.Permissions.NotFoundMessage,
+                ErrorKeys.Permissions.NotFound));
 
         var exists = await _db.UserPermissions
             .AnyAsync(up => up.UserId == userId && up.PermissionId == permission.Id, cancellationToken);
@@ -194,7 +215,9 @@ public sealed class UserCrudService
             .FirstOrDefaultAsync(up => up.UserId == userId && up.PermissionId == permissionId, cancellationToken);
 
         if (entry is null)
-            return NotFound(new NotFoundServiceError("User permission not found."));
+            return NotFound(new NotFoundServiceError(
+                ErrorKeys.Permissions.UserLinkNotFoundMessage,
+                ErrorKeys.Permissions.UserLinkNotFound));
 
         _db.UserPermissions.Remove(entry);
         await _db.SaveChangesAsync(cancellationToken);

@@ -28,6 +28,17 @@ builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddPermissionAuthorization();
 
+if (builder.Environment.IsDevelopment())
+{
+    builder.Services.AddCors(options =>
+    {
+        options.AddPolicy("DevCors", policy =>
+            policy.WithOrigins("http://localhost:4200")
+                .AllowAnyHeader()
+                .AllowAnyMethod());
+    });
+}
+
 var app = builder.Build();
 
 if (!app.Environment.IsEnvironment("NSwag"))
@@ -45,6 +56,9 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+if (app.Environment.IsDevelopment())
+    app.UseCors("DevCors");
 
 app.UseAuthentication();
 app.UseAuthorization();

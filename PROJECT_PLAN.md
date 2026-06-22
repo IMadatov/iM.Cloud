@@ -18,7 +18,7 @@ User model: **to'liq multi-user** (foydalanuvchi o'z fayllariga ega, kerak bo'ls
 |--------|-------------|
 | Backend | .NET 9, ASP.NET Core Web API |
 | Frontend | Angular |
-| Database | SQL Server (Docker) — metadata + papka ierarxiyasi |
+| Database | SQLite (`data/imcloud.db`) — metadata + papka ierarxiyasi |
 | File storage | MinIO (S3-compatible, Docker) — fayl blob'lari |
 | Auth | JWT (access + refresh token) + BCrypt |
 | Arxitektura | Clean Architecture (Domain → Application → Infrastructure → API) |
@@ -63,7 +63,7 @@ Outputs: `openapi/iM.Cloud.openapi.json`, `clients/angular/im-cloud-api-client.t
 ```
 iM.Cloud/
 ├── iM.Cloud.sln
-├── docker-compose.yml          # SQL Server + MinIO
+├── docker-compose.yml          # MinIO
 ├── src/
 │   ├── iM.Cloud.Domain/
 │   ├── iM.Cloud.Application/
@@ -81,7 +81,7 @@ iM.Cloud/
 
 - **Papka ierarxiyasi** — faqat SQL (`FileItem` jadvali: `ParentId`, `IsFolder`). MinIO'da papka tushunchasi yo'q.
 - **Fayl kontenti** — MinIO bucket'ida object (`StorageKey = {userId}/{fileId}`).
-- **Metadata** (nom, owner, size, parent) — SQL Server.
+- **Metadata** (nom, owner, size, parent) — SQLite.
 - Application `IFileStorageService` interface orqali ishlaydi; MinIO implementatsiyasi Infrastructure'da.
 
 | Operatsiya | MinIO | SQL |
@@ -125,7 +125,7 @@ iM.Cloud/
 
 | # | Faza | Mazmun |
 |---|------|--------|
-| 0 | Foundation | Solution scaffold, `docker-compose` (SQL Server + MinIO), Angular skeleton, build verification |
+| 0 | Foundation | Solution scaffold, `docker-compose` (MinIO), Angular skeleton, build verification |
 | 1 | Authentication | User domain, auth use case'lar, JWT (access+refresh) + BCrypt infra, API endpoint'lar |
 | 2 | File Management | FileItem domain, MinIO storage service, CRUD API |
 | 3 | Permissions | Permission entity, handler'larda authorization check |

@@ -1,0 +1,15 @@
+@if (auth.me$ | async; as me) {
+  <p-card header="Dashboard">
+    <p class="welcome">Welcome, {{ me.user?.displayName }}.</p>
+    <p><strong>Email:</strong> {{ me.user?.email }}</p>
+    @if (me.user?.roles?.length) {
+      <p><strong>Roles:</strong> {{ me.user?.roles?.join(', ') }}</p>
+    } @else {
+      <p><strong>Roles:</strong> none</p>
+    }
+  </p-card>
+} @else {
+  <p-card header="Dashboard">
+    <p>Loading your profile...</p>
+  </p-card>
+}

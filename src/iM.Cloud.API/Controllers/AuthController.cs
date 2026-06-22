@@ -26,7 +26,9 @@ public sealed class AuthController : ControllerBase
 
     [HttpPost("login")]
     [AllowAnonymous]
-    public async Task<IActionResult> Login([FromBody] LoginRequest request, CancellationToken cancellationToken)
+    [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<LoginResponse>> Login([FromBody] LoginRequest request, CancellationToken cancellationToken)
     {
         var result = await _loginHandler.HandleAsync(request, cancellationToken);
         return ToActionResult(result);
@@ -34,7 +36,9 @@ public sealed class AuthController : ControllerBase
 
     [HttpPost("refresh")]
     [AllowAnonymous]
-    public async Task<IActionResult> Refresh([FromBody] RefreshRequest request, CancellationToken cancellationToken)
+    [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<LoginResponse>> Refresh([FromBody] RefreshRequest request, CancellationToken cancellationToken)
     {
         var result = await _refreshTokenHandler.HandleAsync(request, cancellationToken);
         return ToActionResult(result);
@@ -42,13 +46,15 @@ public sealed class AuthController : ControllerBase
 
     [HttpGet("me")]
     [Authorize]
-    public async Task<IActionResult> Me(CancellationToken cancellationToken)
+    [ProducesResponseType(typeof(MeResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<MeResponse>> Me(CancellationToken cancellationToken)
     {
         var result = await _getMeHandler.HandleAsync(cancellationToken);
         return ToActionResult(result);
     }
 
-    private IActionResult ToActionResult<T>(Result<T> result) =>
+    private ActionResult<T> ToActionResult<T>(Result<T> result) =>
         result.Succeeded ? Ok(result.Value) : BadRequest(new { error = result.Error });
 
     private IActionResult ToActionResult(Result result) =>

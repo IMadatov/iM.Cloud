@@ -4,6 +4,7 @@ using BaseCrud.EntityFrameworkCore;
 using BaseCrud.Errors;
 using BaseCrud.ServiceResults;
 using iM.Cloud.Application.Admin.Groups;
+using iM.Cloud.Application.Common;
 using iM.Cloud.Domain.Dtos.Groups;
 using iM.Cloud.Domain.Entities;
 using iM.Cloud.Domain.Mappings;
@@ -31,7 +32,9 @@ public sealed class GroupService : BaseCrudService<Group, GroupListDto, GroupDet
             return ServiceResult.FromFailed(entityResult).ToType<GroupDetailsDto?>();
 
         if (entityResult.Result is null)
-            return NotFound(new NotFoundServiceError());
+            return NotFound(new NotFoundServiceError(
+                ErrorKeys.Db.NotFoundByIdMessage,
+                ErrorKeys.Db.NotFoundById));
 
         return GroupMappings.ToDetailsDto(entityResult.Result);
     }
@@ -43,11 +46,15 @@ public sealed class GroupService : BaseCrudService<Group, GroupListDto, GroupDet
     {
         var name = entity.Name?.Trim() ?? string.Empty;
         if (string.IsNullOrWhiteSpace(name))
-            return BadRequest(new ValidationServiceError("Group name is required.", "validation.name_required"));
+            return BadRequest(new ValidationServiceError(
+                ErrorKeys.Validation.NameRequiredMessage,
+                ErrorKeys.Validation.NameRequired));
 
         var exists = await _db.Groups.AnyAsync(g => g.Name == name, cancellationToken);
         if (exists)
-            return Conflict(new ValidationServiceError("Group name already exists.", "validation.name_exists"));
+            return Conflict(new ValidationServiceError(
+                ErrorKeys.Validation.NameExistsMessage,
+                ErrorKeys.Validation.NameExists));
 
         var group = Group.Create(name, entity.Description, userProfile?.UserName);
         var insertResult = await InsertAsync(group, userProfile, cancellationToken);
@@ -64,15 +71,21 @@ public sealed class GroupService : BaseCrudService<Group, GroupListDto, GroupDet
     {
         var group = await _db.Groups.FirstOrDefaultAsync(g => g.Id == entity.Id, cancellationToken);
         if (group is null)
-            return NotFound(new NotFoundServiceError());
+            return NotFound(new NotFoundServiceError(
+                ErrorKeys.Db.NotFoundByIdMessage,
+                ErrorKeys.Db.NotFoundById));
 
         var name = entity.Name?.Trim() ?? string.Empty;
         if (string.IsNullOrWhiteSpace(name))
-            return BadRequest(new ValidationServiceError("Group name is required.", "validation.name_required"));
+            return BadRequest(new ValidationServiceError(
+                ErrorKeys.Validation.NameRequiredMessage,
+                ErrorKeys.Validation.NameRequired));
 
         var nameTaken = await _db.Groups.AnyAsync(g => g.Id != entity.Id && g.Name == name, cancellationToken);
         if (nameTaken)
-            return Conflict(new ValidationServiceError("Group name already exists.", "validation.name_exists"));
+            return Conflict(new ValidationServiceError(
+                ErrorKeys.Validation.NameExistsMessage,
+                ErrorKeys.Validation.NameExists));
 
         GroupMappings.ApplyDetails(group, entity);
         group.LastModifiedBy = userProfile?.UserName;
@@ -85,11 +98,15 @@ public sealed class GroupService : BaseCrudService<Group, GroupListDto, GroupDet
     {
         var groupExists = await _db.Groups.AnyAsync(g => g.Id == groupId && g.Active, cancellationToken);
         if (!groupExists)
-            return NotFound(new NotFoundServiceError("Group not found."));
+            return NotFound(new NotFoundServiceError(
+                ErrorKeys.Groups.NotFoundMessage,
+                ErrorKeys.Groups.NotFound));
 
         var userExists = await _db.Users.AnyAsync(u => u.Id == userId, cancellationToken);
         if (!userExists)
-            return NotFound(new NotFoundServiceError("User not found."));
+            return NotFound(new NotFoundServiceError(
+                ErrorKeys.Groups.UserNotFoundMessage,
+                ErrorKeys.Groups.UserNotFound));
 
         var exists = await _db.UserGroups.AnyAsync(ug => ug.GroupId == groupId && ug.UserId == userId, cancellationToken);
         if (!exists)
@@ -107,7 +124,9 @@ public sealed class GroupService : BaseCrudService<Group, GroupListDto, GroupDet
             .FirstOrDefaultAsync(ug => ug.GroupId == groupId && ug.UserId == userId, cancellationToken);
 
         if (entry is null)
-            return NotFound(new NotFoundServiceError("Membership not found."));
+            return NotFound(new NotFoundServiceError(
+                ErrorKeys.Groups.MembershipNotFoundMessage,
+                ErrorKeys.Groups.MembershipNotFound));
 
         _db.UserGroups.Remove(entry);
         await _db.SaveChangesAsync(cancellationToken);
@@ -120,7 +139,9 @@ public sealed class GroupService : BaseCrudService<Group, GroupListDto, GroupDet
     {
         var groupExists = await _db.Groups.AnyAsync(g => g.Id == groupId, cancellationToken);
         if (!groupExists)
-            return (ServiceResult<IReadOnlyList<Guid>>)NotFound(new NotFoundServiceError("Group not found."));
+            return (ServiceResult<IReadOnlyList<Guid>>)NotFound(new NotFoundServiceError(
+                ErrorKeys.Groups.NotFoundMessage,
+                ErrorKeys.Groups.NotFound));
 
         var userIds = await _db.UserGroups
             .Where(ug => ug.GroupId == groupId)
