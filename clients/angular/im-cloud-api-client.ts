@@ -1861,6 +1861,86 @@ export class AuthClient implements IAuthClient {
     }
 }
 
+export interface INavigationClient {
+    my(): Observable<NavigationItemDto[]>;
+}
+
+@Injectable({
+    providedIn: 'root'
+})
+export class NavigationClient implements INavigationClient {
+    private http: HttpClient;
+    private baseUrl: string;
+    protected jsonParseReviver: ((key: string, value: any) => any) | undefined = undefined;
+
+    constructor(@Inject(HttpClient) http: HttpClient, @Optional() @Inject(API_BASE_URL) baseUrl?: string) {
+        this.http = http;
+        this.baseUrl = baseUrl ?? "";
+    }
+
+    my(): Observable<NavigationItemDto[]> {
+        let url_ = this.baseUrl + "/api/navigation/my";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_ : any = {
+            observe: "response",
+            responseType: "blob",
+            headers: new HttpHeaders({
+                "Accept": "application/json"
+            })
+        };
+
+        return this.http.request("get", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processMy(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processMy(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<NavigationItemDto[]>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<NavigationItemDto[]>;
+        }));
+    }
+
+    protected processMy(response: HttpResponseBase): Observable<NavigationItemDto[]> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            if (Array.isArray(resultData200)) {
+                result200 = [] as any;
+                for (let item of resultData200)
+                    result200!.push(NavigationItemDto.fromJS(item));
+            }
+            else {
+                result200 = <any>null;
+            }
+            return _observableOf(result200);
+            }));
+        } else if (status === 400) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result400: any = null;
+            let resultData400 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result400 = ProblemDetails.fromJS(resultData400);
+            return throwException("A server side error occurred.", status, _responseText, _headers, result400);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+}
+
 export class QueryResultOfGroupListDto implements IQueryResultOfGroupListDto {
     items?: GroupListDto[];
     totalItems?: number;
@@ -3000,6 +3080,58 @@ export class MeResponse implements IMeResponse {
 export interface IMeResponse {
     user?: UserDto;
     permissions?: string[];
+}
+
+export class NavigationItemDto implements INavigationItemDto {
+    key?: string;
+    label?: string;
+    icon?: string;
+    path?: string;
+    order?: number;
+
+    constructor(data?: INavigationItemDto) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (<any>this)[property] = (<any>data)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            this.key = _data["key"];
+            this.label = _data["label"];
+            this.icon = _data["icon"];
+            this.path = _data["path"];
+            this.order = _data["order"];
+        }
+    }
+
+    static fromJS(data: any): NavigationItemDto {
+        data = typeof data === 'object' ? data : {};
+        let result = new NavigationItemDto();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        data["key"] = this.key;
+        data["label"] = this.label;
+        data["icon"] = this.icon;
+        data["path"] = this.path;
+        data["order"] = this.order;
+        return data;
+    }
+}
+
+export interface INavigationItemDto {
+    key?: string;
+    label?: string;
+    icon?: string;
+    path?: string;
+    order?: number;
 }
 
 export interface FileResponse {

@@ -1,4 +1,5 @@
 using iM.Cloud.Application.Auth;
+using iM.Cloud.Application.Navigation;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace iM.Cloud.Application;
@@ -10,6 +11,7 @@ public static class DependencyInjection
         services.AddScoped<LoginHandler>();
         services.AddScoped<RefreshTokenHandler>();
         services.AddScoped<GetMeHandler>();
+        services.AddScoped<GetMyNavigationHandler>();
 
         return services;
     }

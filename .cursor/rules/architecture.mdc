@@ -76,3 +76,7 @@ Run `dotnet build` from the solution root and fix any errors before finishing.
 ## API errors and FE notifications
 
 See `.cursor/rules/service-result-errors.mdc` — use BaseCrud `ServiceResult` / `ServiceError` with translation keys in both `ErrorMessage` and `ErrorKey`; FE resolves via translation service.
+
+## FE navigation (permission-based)
+
+See `.cursor/rules/fe-navigation.mdc` — menubar items come from `GET /api/navigation/my`; do not hardcode layout menus; protect routes with `permissionGuard`.
