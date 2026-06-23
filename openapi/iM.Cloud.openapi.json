@@ -287,9 +287,68 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "type": "string",
-                    "format": "guid"
+                    "$ref": "#/components/schemas/GroupMemberDto"
                   }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      }
+    },
+    "/api/admin/groups/{groupId}/members/{userId}/access": {
+      "put": {
+        "tags": [
+          "AdminGroups"
+        ],
+        "operationId": "AdminGroups_UpdateMemberAccess",
+        "parameters": [
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "guid"
+            },
+            "x-position": 1
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "guid"
+            },
+            "x-position": 2
+          }
+        ],
+        "requestBody": {
+          "x-name": "request",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateGroupMemberAccessRequest"
+              }
+            }
+          },
+          "required": true,
+          "x-position": 3
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
                 }
               }
             }
@@ -1558,6 +1617,396 @@
         ]
       }
     },
+    "/api/files/{id}/share": {
+      "post": {
+        "tags": [
+          "Files"
+        ],
+        "operationId": "Files_Share",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "guid"
+            },
+            "x-position": 1
+          }
+        ],
+        "requestBody": {
+          "x-name": "request",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateShareRequest"
+              }
+            }
+          },
+          "required": true,
+          "x-position": 2
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShareLinkDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      }
+    },
+    "/api/files/shares/{token}": {
+      "delete": {
+        "tags": [
+          "Files"
+        ],
+        "operationId": "Files_RevokeShare",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "x-position": 1
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      }
+    },
+    "/api/groups/{groupId}/files": {
+      "get": {
+        "tags": [
+          "GroupFiles"
+        ],
+        "operationId": "GroupFiles_List",
+        "parameters": [
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "guid"
+            },
+            "x-position": 1
+          },
+          {
+            "name": "parentId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "guid",
+              "nullable": true
+            },
+            "x-position": 2
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FileItemDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      }
+    },
+    "/api/groups/{groupId}/files/folders": {
+      "post": {
+        "tags": [
+          "GroupFiles"
+        ],
+        "operationId": "GroupFiles_CreateFolder",
+        "parameters": [
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "guid"
+            },
+            "x-position": 1
+          }
+        ],
+        "requestBody": {
+          "x-name": "request",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateFolderRequest"
+              }
+            }
+          },
+          "required": true,
+          "x-position": 2
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileItemDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      }
+    },
+    "/api/groups/{groupId}/files/upload": {
+      "post": {
+        "tags": [
+          "GroupFiles"
+        ],
+        "operationId": "GroupFiles_Upload",
+        "parameters": [
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "guid"
+            },
+            "x-position": 1
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "parentId": {
+                    "type": "string",
+                    "format": "guid",
+                    "nullable": true
+                  },
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "nullable": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileItemDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      }
+    },
+    "/api/groups/{groupId}/files/{id}": {
+      "delete": {
+        "tags": [
+          "GroupFiles"
+        ],
+        "operationId": "GroupFiles_Delete",
+        "parameters": [
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "guid"
+            },
+            "x-position": 1
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "guid"
+            },
+            "x-position": 2
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      }
+    },
+    "/api/groups/{groupId}/files/{id}/download": {
+      "get": {
+        "tags": [
+          "GroupFiles"
+        ],
+        "operationId": "GroupFiles_Download",
+        "parameters": [
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "guid"
+            },
+            "x-position": 1
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "guid"
+            },
+            "x-position": 2
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      }
+    },
+    "/api/groups/{groupId}/files/{id}/share": {
+      "post": {
+        "tags": [
+          "GroupFiles"
+        ],
+        "operationId": "GroupFiles_Share",
+        "parameters": [
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "guid"
+            },
+            "x-position": 1
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "guid"
+            },
+            "x-position": 2
+          }
+        ],
+        "requestBody": {
+          "x-name": "request",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateShareRequest"
+              }
+            }
+          },
+          "required": true,
+          "x-position": 3
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShareLinkDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      }
+    },
     "/api/navigation/my": {
       "get": {
         "tags": [
@@ -1594,6 +2043,70 @@
             "Bearer": []
           }
         ]
+      }
+    },
+    "/api/public/shares/{token}": {
+      "get": {
+        "tags": [
+          "PublicShares"
+        ],
+        "operationId": "PublicShares_Get",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "x-position": 1
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharePreviewDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/public/shares/{token}/content": {
+      "get": {
+        "tags": [
+          "PublicShares"
+        ],
+        "operationId": "PublicShares_GetContent",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "x-position": 1
+          },
+          {
+            "name": "disposition",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "default": "inline"
+            },
+            "x-position": 2
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
       }
     }
   },
@@ -1637,8 +2150,30 @@
           },
           "active": {
             "type": "boolean"
+          },
+          "accessLevel": {
+            "nullable": true,
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/GroupAccessLevel"
+              }
+            ]
           }
         }
+      },
+      "GroupAccessLevel": {
+        "type": "integer",
+        "description": "",
+        "x-enumNames": [
+          "Read",
+          "Write",
+          "Admin"
+        ],
+        "enum": [
+          0,
+          1,
+          2
+        ]
       },
       "PrimeTableMetaData": {
         "type": "object",
@@ -1736,6 +2271,43 @@
           "userId": {
             "type": "string",
             "format": "guid"
+          },
+          "accessLevel": {
+            "nullable": true,
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/GroupAccessLevel"
+              }
+            ]
+          }
+        }
+      },
+      "UpdateGroupMemberAccessRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "accessLevel": {
+            "$ref": "#/components/schemas/GroupAccessLevel"
+          }
+        }
+      },
+      "GroupMemberDto": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "guid"
+          },
+          "email": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string",
+            "nullable": true
+          },
+          "accessLevel": {
+            "$ref": "#/components/schemas/GroupAccessLevel"
           }
         }
       },
@@ -2083,6 +2655,10 @@
           "contentType": {
             "type": "string",
             "nullable": true
+          },
+          "canDelete": {
+            "type": "boolean",
+            "nullable": true
           }
         }
       },
@@ -2097,6 +2673,59 @@
             "type": "string",
             "format": "guid",
             "nullable": true
+          }
+        }
+      },
+      "ShareLinkDto": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "token": {
+            "type": "string"
+          },
+          "fileName": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "accessLevel": {
+            "$ref": "#/components/schemas/ShareAccessLevel"
+          }
+        }
+      },
+      "ShareAccessLevel": {
+        "type": "integer",
+        "description": "",
+        "x-enumNames": [
+          "Read",
+          "Write",
+          "Modify"
+        ],
+        "enum": [
+          0,
+          1,
+          2
+        ]
+      },
+      "CreateShareRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "accessLevel": {
+            "nullable": true,
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ShareAccessLevel"
+              }
+            ]
           }
         }
       },
@@ -2119,6 +2748,32 @@
           "order": {
             "type": "integer",
             "format": "int32"
+          }
+        }
+      },
+      "SharePreviewDto": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "fileName": {
+            "type": "string"
+          },
+          "contentType": {
+            "type": "string",
+            "nullable": true
+          },
+          "size": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "accessLevel": {
+            "$ref": "#/components/schemas/ShareAccessLevel"
           }
         }
       }

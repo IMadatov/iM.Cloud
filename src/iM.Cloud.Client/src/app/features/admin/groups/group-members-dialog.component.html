@@ -1,0 +1,47 @@
+<p-dialog
+  [header]="dialogHeader"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [style]="{ width: '36rem' }"
+  [visible]="visible()"
+  (visibleChange)="visible.set($event)"
+>
+  @if (loading()) {
+    <p class="group-members-dialog__status">Loading members...</p>
+  } @else if (catalog().length === 0) {
+    <p class="group-members-dialog__status">No users available.</p>
+  } @else {
+    <ul class="group-members-dialog__list">
+      @for (user of catalog(); track user.id) {
+        <li class="group-members-dialog__item">
+          <p-checkbox
+            [binary]="true"
+            [ngModel]="isMember(user)"
+            [disabled]="isBusy(user)"
+            [inputId]="'group-member-' + user.id"
+            (onChange)="onToggle(user, $event.checked)"
+          />
+          <label [for]="'group-member-' + user.id" class="group-members-dialog__label">
+            <span class="group-members-dialog__name">{{ user.displayName || user.email }}</span>
+            @if (user.displayName && user.email) {
+              <span class="group-members-dialog__email">{{ user.email }}</span>
+            }
+          </label>
+          @if (isMember(user)) {
+            <p-select
+              class="group-members-dialog__access"
+              appendTo="body"
+              [options]="accessOptions"
+              optionLabel="label"
+              optionValue="value"
+              [ngModel]="memberAccessLevel(user)"
+              [disabled]="isBusy(user)"
+              (ngModelChange)="onAccessChange(user, $event)"
+            />
+          }
+        </li>
+      }
+    </ul>
+  }
+</p-dialog>

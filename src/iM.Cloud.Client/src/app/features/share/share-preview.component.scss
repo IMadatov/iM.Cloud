@@ -1,0 +1,56 @@
+.share-preview-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 2rem 1rem;
+  background: var(--p-surface-100);
+}
+
+.share-preview-page p-card {
+  width: min(960px, 100%);
+}
+
+.share-preview-header h1 {
+  margin: 0 0 0.5rem;
+  font-size: 1.25rem;
+  word-break: break-word;
+}
+
+.share-preview-expiry {
+  margin: 0 0 1rem;
+  color: var(--p-text-muted-color);
+  font-size: 0.875rem;
+}
+
+.share-preview-status {
+  margin: 0;
+  color: var(--p-text-muted-color);
+}
+
+.share-preview-status--error {
+  color: var(--p-red-500);
+}
+
+.share-preview-image {
+  display: block;
+  max-width: 100%;
+  max-height: 70vh;
+  margin: 0 auto 1rem;
+}
+
+.share-preview-frame {
+  width: 100%;
+  min-height: 70vh;
+  border: none;
+  margin-bottom: 1rem;
+}
+
+.share-preview-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.share-preview-actions a {
+  text-decoration: none;
+}

@@ -52,7 +52,24 @@ public sealed class AdminGroupsController : ApiControllerBase
     [HttpPost("{groupId:guid}/members")]
     [RequirePermission(PermissionCodes.GroupsManage)]
     public Task<ActionResult> AddMember(Guid groupId, [FromBody] AddGroupMemberRequest request, CancellationToken cancellationToken)
-        => FromServiceResult(_groupService.AddMemberAsync(groupId, request.UserId, cancellationToken));
+        => FromServiceResult(_groupService.AddMemberAsync(
+            groupId,
+            request.UserId,
+            request.AccessLevel ?? GroupAccessLevel.Write,
+            cancellationToken));
+
+    [HttpPut("{groupId:guid}/members/{userId:guid}/access")]
+    [RequirePermission(PermissionCodes.GroupsManage)]
+    public Task<ActionResult> UpdateMemberAccess(
+        Guid groupId,
+        Guid userId,
+        [FromBody] UpdateGroupMemberAccessRequest request,
+        CancellationToken cancellationToken)
+        => FromServiceResult(_groupService.UpdateMemberAccessAsync(
+            groupId,
+            userId,
+            request.AccessLevel,
+            cancellationToken));
 
     [HttpDelete("{groupId:guid}/members/{userId:guid}")]
     [RequirePermission(PermissionCodes.GroupsManage)]
@@ -61,8 +78,8 @@ public sealed class AdminGroupsController : ApiControllerBase
 
     [HttpGet("{groupId:guid}/members")]
     [RequirePermission(PermissionCodes.GroupsRead)]
-    public Task<ActionResult<IReadOnlyList<Guid>?>> ListMembers(Guid groupId, CancellationToken cancellationToken)
-        => FromServiceResult(_groupService.ListMemberIdsAsync(groupId, cancellationToken));
+    public Task<ActionResult<IReadOnlyList<GroupMemberDto>?>> ListMembers(Guid groupId, CancellationToken cancellationToken)
+        => FromServiceResult(_groupService.ListMembersAsync(groupId, cancellationToken));
 }
 
 [Authorize]
@@ -92,4 +109,10 @@ public sealed class GroupsController : ApiControllerBase
 public sealed class AddGroupMemberRequest
 {
     public Guid UserId { get; set; }
+    public GroupAccessLevel? AccessLevel { get; set; }
+}
+
+public sealed class UpdateGroupMemberAccessRequest
+{
+    public GroupAccessLevel AccessLevel { get; set; }
 }

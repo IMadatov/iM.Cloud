@@ -107,6 +107,12 @@ public static class ErrorKeys
 
         public const string MembershipNotFound = "groups.membership_not_found";
         public const string MembershipNotFoundMessage = "groups.membership_not_found.message";
+
+        public const string NotMember = "groups.not_member";
+        public const string NotMemberMessage = "groups.not_member.message";
+
+        public const string InsufficientAccess = "groups.insufficient_access";
+        public const string InsufficientAccessMessage = "groups.insufficient_access.message";
     }
 
     public static class Files
@@ -131,6 +137,15 @@ public static class ErrorKeys
 
         public const string StorageFailed = "files.storage_failed";
         public const string StorageFailedMessage = "files.storage_failed.message";
+
+        public const string ShareNotFound = "files.share_not_found";
+        public const string ShareNotFoundMessage = "files.share_not_found.message";
+
+        public const string ShareExpired = "files.share_expired";
+        public const string ShareExpiredMessage = "files.share_expired.message";
+
+        public const string ShareInvalidExpiry = "files.share_invalid_expiry";
+        public const string ShareInvalidExpiryMessage = "files.share_invalid_expiry.message";
     }
 
     public static class Server

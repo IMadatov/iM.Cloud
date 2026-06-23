@@ -10,13 +10,19 @@ public class FileItem : EntityBase<Guid>
     public Guid? ParentId { get; set; }
     public bool IsFolder { get; set; }
     public Guid OwnerId { get; set; }
+    public Guid? GroupId { get; set; }
     public Guid? StorageObjectId { get; set; }
 
     public StorageObject? StorageObject { get; set; }
 
     public FileItem() { }
 
-    public static FileItem CreateFolder(string name, Guid? parentId, Guid ownerId, string? createdBy = null)
+    public static FileItem CreateFolder(
+        string name,
+        Guid? parentId,
+        Guid ownerId,
+        Guid? groupId = null,
+        string? createdBy = null)
     {
         ValidateName(name);
 
@@ -27,6 +33,7 @@ public class FileItem : EntityBase<Guid>
             ParentId = parentId,
             IsFolder = true,
             OwnerId = ownerId,
+            GroupId = groupId,
             StorageObjectId = null,
             Active = true,
             CreatedDate = DateTime.UtcNow,
@@ -39,6 +46,7 @@ public class FileItem : EntityBase<Guid>
         Guid? parentId,
         Guid ownerId,
         Guid storageObjectId,
+        Guid? groupId = null,
         string? createdBy = null)
     {
         ValidateName(name);
@@ -50,6 +58,7 @@ public class FileItem : EntityBase<Guid>
             ParentId = parentId,
             IsFolder = false,
             OwnerId = ownerId,
+            GroupId = groupId,
             StorageObjectId = storageObjectId,
             Active = true,
             CreatedDate = DateTime.UtcNow,

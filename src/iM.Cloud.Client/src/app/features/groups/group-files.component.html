@@ -1,15 +1,17 @@
-<p-card header="Files">
+<p-card [header]="groupName()">
   <div class="toolbar">
     <p-breadcrumb [model]="breadcrumbModel()" [home]="undefined" />
     <div class="actions">
-      <p-button label="New folder" icon="pi pi-folder-plus" (onClick)="showCreateFolderDialog()" />
-      <input #fileInput type="file" hidden (change)="onFileSelected($event)" />
-      <p-button
-        label="Upload"
-        icon="pi pi-upload"
-        [loading]="loading()"
-        (onClick)="fileInput.click()"
-      />
+      @if (canWrite()) {
+        <p-button label="New folder" icon="pi pi-folder-plus" (onClick)="showCreateFolderDialog()" />
+        <input #fileInput type="file" hidden (change)="onFileSelected($event)" />
+        <p-button
+          label="Upload"
+          icon="pi pi-upload"
+          [loading]="loading()"
+          (onClick)="fileInput.click()"
+        />
+      }
     </div>
   </div>
 
@@ -57,6 +59,8 @@
               [text]="true"
               [rounded]="true"
               severity="secondary"
+              [class.action-placeholder]="!canShowRowMenu(item)"
+              [disabled]="!canShowRowMenu(item)"
               (onClick)="openRowMenu($event, item)"
             />
           </div>
@@ -95,9 +99,9 @@
 >
   @if (!shareUrl()) {
     <div class="share-form">
-      <label class="share-label" for="share-expiry">Link expires</label>
+      <label class="share-label" for="group-share-expiry">Link expires</label>
       <p-select
-        inputId="share-expiry"
+        inputId="group-share-expiry"
         class="w-full"
         appendTo="body"
         [options]="shareExpiryOptions"

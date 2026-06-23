@@ -7,13 +7,13 @@ using Microsoft.AspNetCore.Mvc;
 namespace iM.Cloud.API.Controllers;
 
 [Authorize]
-[Route("api/files")]
-public sealed class FilesController : ApiControllerBase
+[Route("api/groups/{groupId:guid}/files")]
+public sealed class GroupFilesController : ApiControllerBase
 {
     private readonly IFileService _fileService;
     private readonly ICurrentUserService _currentUser;
 
-    public FilesController(IFileService fileService, ICurrentUserService currentUser)
+    public GroupFilesController(IFileService fileService, ICurrentUserService currentUser)
         : base(currentUser)
     {
         _fileService = fileService;
@@ -22,28 +22,40 @@ public sealed class FilesController : ApiControllerBase
 
     [HttpGet]
     [ProducesResponseType(typeof(IReadOnlyList<FileItemDto>), StatusCodes.Status200OK)]
-    public Task<ActionResult<IReadOnlyList<FileItemDto>?>> List([FromQuery] Guid? parentId, CancellationToken cancellationToken)
+    public Task<ActionResult<IReadOnlyList<FileItemDto>?>> List(
+        Guid groupId,
+        [FromQuery] Guid? parentId,
+        CancellationToken cancellationToken)
     {
         if (_currentUser.UserId is not Guid userId)
             return Task.FromResult<ActionResult<IReadOnlyList<FileItemDto>?>>(Unauthorized());
 
-        return FromServiceResult(_fileService.ListAsync(parentId, userId, cancellationToken));
+        return FromServiceResult(_fileService.ListGroupAsync(groupId, parentId, userId, cancellationToken));
     }
 
     [HttpPost("folders")]
     [ProducesResponseType(typeof(FileItemDto), StatusCodes.Status200OK)]
-    public Task<ActionResult<FileItemDto?>> CreateFolder([FromBody] CreateFolderRequest request, CancellationToken cancellationToken)
+    public Task<ActionResult<FileItemDto?>> CreateFolder(
+        Guid groupId,
+        [FromBody] CreateFolderRequest request,
+        CancellationToken cancellationToken)
     {
         if (_currentUser.UserId is not Guid userId)
             return Task.FromResult<ActionResult<FileItemDto?>>(Unauthorized());
 
-        return FromServiceResult(_fileService.CreateFolderAsync(request, userId, User.Identity?.Name, cancellationToken));
+        return FromServiceResult(_fileService.CreateGroupFolderAsync(
+            groupId,
+            request,
+            userId,
+            User.Identity?.Name,
+            cancellationToken));
     }
 
     [HttpPost("upload")]
     [ProducesResponseType(typeof(FileItemDto), StatusCodes.Status200OK)]
     [RequestSizeLimit(524_288_000)]
     public async Task<ActionResult<FileItemDto?>> Upload(
+        Guid groupId,
         [FromForm] Guid? parentId,
         IFormFile file,
         CancellationToken cancellationToken)
@@ -55,7 +67,8 @@ public sealed class FilesController : ApiControllerBase
             return BadRequest();
 
         await using var stream = file.OpenReadStream();
-        var result = await _fileService.UploadAsync(
+        var result = await _fileService.UploadGroupAsync(
+            groupId,
             parentId,
             file.FileName,
             stream,
@@ -72,22 +85,22 @@ public sealed class FilesController : ApiControllerBase
     }
 
     [HttpDelete("{id:guid}")]
-    public Task<ActionResult> Delete(Guid id, CancellationToken cancellationToken)
+    public Task<ActionResult> Delete(Guid groupId, Guid id, CancellationToken cancellationToken)
     {
         if (_currentUser.UserId is not Guid userId)
             return Task.FromResult<ActionResult>(Unauthorized());
 
-        return FromServiceResult(_fileService.DeleteAsync(id, userId, cancellationToken));
+        return FromServiceResult(_fileService.DeleteGroupAsync(groupId, id, userId, cancellationToken));
     }
 
     [HttpGet("{id:guid}/download")]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    public async Task<IActionResult> Download(Guid id, CancellationToken cancellationToken)
+    public async Task<IActionResult> Download(Guid groupId, Guid id, CancellationToken cancellationToken)
     {
         if (_currentUser.UserId is not Guid userId)
             return Unauthorized();
 
-        var result = await _fileService.GetDownloadAsync(id, userId, cancellationToken);
+        var result = await _fileService.GetGroupDownloadAsync(groupId, id, userId, cancellationToken);
         if (result.TryGetResult(out var download) && download is not null)
             return File(download.Content, download.ContentType, download.FileName);
 
@@ -97,6 +110,7 @@ public sealed class FilesController : ApiControllerBase
     [HttpPost("{id:guid}/share")]
     [ProducesResponseType(typeof(ShareLinkDto), StatusCodes.Status200OK)]
     public Task<ActionResult<ShareLinkDto?>> Share(
+        Guid groupId,
         Guid id,
         [FromBody] CreateShareRequest request,
         CancellationToken cancellationToken)
@@ -104,15 +118,11 @@ public sealed class FilesController : ApiControllerBase
         if (_currentUser.UserId is not Guid userId)
             return Task.FromResult<ActionResult<ShareLinkDto?>>(Unauthorized());
 
-        return FromServiceResult(_fileService.CreateShareAsync(id, userId, request, cancellationToken));
-    }
-
-    [HttpDelete("shares/{token}")]
-    public Task<ActionResult> RevokeShare(string token, CancellationToken cancellationToken)
-    {
-        if (_currentUser.UserId is not Guid userId)
-            return Task.FromResult<ActionResult>(Unauthorized());
-
-        return FromServiceResult(_fileService.RevokeShareAsync(token, userId, cancellationToken));
+        return FromServiceResult(_fileService.CreateGroupShareAsync(
+            groupId,
+            id,
+            userId,
+            request,
+            cancellationToken));
     }
 }

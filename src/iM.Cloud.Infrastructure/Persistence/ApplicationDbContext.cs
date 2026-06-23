@@ -1,5 +1,7 @@
 using iM.Cloud.Application.Common.Interfaces;
+using iM.Cloud.Domain.Authorization;
 using iM.Cloud.Domain.Entities;
+using FileShareEntity = iM.Cloud.Domain.Entities.FileShare;
 using iM.Cloud.Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
@@ -22,6 +24,7 @@ public class ApplicationDbContext
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<StorageObject> StorageObjects => Set<StorageObject>();
     public DbSet<FileItem> FileItems => Set<FileItem>();
+    public DbSet<FileShareEntity> FileShares => Set<FileShareEntity>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -95,6 +98,7 @@ public class ApplicationDbContext
             entity.ToTable("UserGroups");
             entity.HasKey(ug => ug.Id);
             entity.HasIndex(ug => new { ug.UserId, ug.GroupId }).IsUnique();
+            entity.Property(ug => ug.AccessLevel).HasConversion<int>();
             entity.HasOne<ApplicationUser>()
                 .WithMany()
                 .HasForeignKey(ug => ug.UserId)
@@ -124,8 +128,12 @@ public class ApplicationDbContext
             entity.HasKey(f => f.Id);
             entity.HasIndex(f => new { f.OwnerId, f.ParentId, f.Name })
                 .IsUnique()
-                .HasFilter("Active = 1");
+                .HasFilter("Active = 1 AND GroupId IS NULL");
+            entity.HasIndex(f => new { f.GroupId, f.ParentId, f.Name })
+                .IsUnique()
+                .HasFilter("Active = 1 AND GroupId IS NOT NULL");
             entity.HasIndex(f => f.StorageObjectId);
+            entity.HasIndex(f => f.GroupId);
             entity.Property(f => f.Name).HasMaxLength(255);
             entity.Property(f => f.CreatedBy).HasMaxLength(200);
             entity.Property(f => f.LastModifiedBy).HasMaxLength(200);
@@ -136,6 +144,25 @@ public class ApplicationDbContext
             entity.HasOne<FileItem>()
                 .WithMany()
                 .HasForeignKey(f => f.ParentId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<Group>()
+                .WithMany()
+                .HasForeignKey(f => f.GroupId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<FileShareEntity>(entity =>
+        {
+            entity.ToTable("FileShares");
+            entity.HasKey(s => s.Id);
+            entity.HasIndex(s => s.Token).IsUnique();
+            entity.Property(s => s.Token).HasMaxLength(64);
+            entity.Property(s => s.AccessLevel).HasConversion<int>();
+            entity.Property(s => s.CreatedBy).HasMaxLength(200);
+            entity.Property(s => s.LastModifiedBy).HasMaxLength(200);
+            entity.HasOne<FileItem>()
+                .WithMany()
+                .HasForeignKey(s => s.FileItemId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
 

@@ -5,9 +5,11 @@ using BaseCrud.Errors;
 using BaseCrud.ServiceResults;
 using iM.Cloud.Application.Admin.Groups;
 using iM.Cloud.Application.Common;
+using iM.Cloud.Domain.Authorization;
 using iM.Cloud.Domain.Dtos.Groups;
 using iM.Cloud.Domain.Entities;
 using iM.Cloud.Domain.Mappings;
+using iM.Cloud.Infrastructure.Identity;
 using iM.Cloud.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -57,11 +59,10 @@ public sealed class GroupService : BaseCrudService<Group, GroupListDto, GroupDet
                 ErrorKeys.Validation.NameExists));
 
         var group = Group.Create(name, entity.Description, userProfile?.UserName);
-        var insertResult = await InsertAsync(group, userProfile, cancellationToken);
-        if (!insertResult.IsSuccess)
-            return ServiceResult.FromFailed(insertResult).ToType<GroupDetailsDto>();
+        _db.Groups.Add(group);
+        await _db.SaveChangesAsync(cancellationToken);
 
-        return GroupMappings.ToDetailsDto(insertResult.Result!);
+        return GroupMappings.ToDetailsDto(group);
     }
 
     public override async Task<ServiceResult<GroupDetailsDto>> UpdateAsync(
@@ -94,7 +95,11 @@ public sealed class GroupService : BaseCrudService<Group, GroupListDto, GroupDet
         return GroupMappings.ToDetailsDto(group);
     }
 
-    public async Task<ServiceResult> AddMemberAsync(Guid groupId, Guid userId, CancellationToken cancellationToken = default)
+    public async Task<ServiceResult> AddMemberAsync(
+        Guid groupId,
+        Guid userId,
+        GroupAccessLevel accessLevel = GroupAccessLevel.Write,
+        CancellationToken cancellationToken = default)
     {
         var groupExists = await _db.Groups.AnyAsync(g => g.Id == groupId && g.Active, cancellationToken);
         if (!groupExists)
@@ -108,13 +113,34 @@ public sealed class GroupService : BaseCrudService<Group, GroupListDto, GroupDet
                 ErrorKeys.Groups.UserNotFoundMessage,
                 ErrorKeys.Groups.UserNotFound));
 
-        var exists = await _db.UserGroups.AnyAsync(ug => ug.GroupId == groupId && ug.UserId == userId, cancellationToken);
-        if (!exists)
+        var existing = await _db.UserGroups
+            .FirstOrDefaultAsync(ug => ug.GroupId == groupId && ug.UserId == userId, cancellationToken);
+
+        if (existing is null)
         {
-            _db.UserGroups.Add(UserGroup.Create(userId, groupId));
+            _db.UserGroups.Add(UserGroup.Create(userId, groupId, accessLevel));
             await _db.SaveChangesAsync(cancellationToken);
         }
 
+        return NoContent();
+    }
+
+    public async Task<ServiceResult> UpdateMemberAccessAsync(
+        Guid groupId,
+        Guid userId,
+        GroupAccessLevel accessLevel,
+        CancellationToken cancellationToken = default)
+    {
+        var entry = await _db.UserGroups
+            .FirstOrDefaultAsync(ug => ug.GroupId == groupId && ug.UserId == userId, cancellationToken);
+
+        if (entry is null)
+            return NotFound(new NotFoundServiceError(
+                ErrorKeys.Groups.MembershipNotFoundMessage,
+                ErrorKeys.Groups.MembershipNotFound));
+
+        entry.AccessLevel = accessLevel;
+        await _db.SaveChangesAsync(cancellationToken);
         return NoContent();
     }
 
@@ -133,22 +159,33 @@ public sealed class GroupService : BaseCrudService<Group, GroupListDto, GroupDet
         return NoContent();
     }
 
-    public async Task<ServiceResult<IReadOnlyList<Guid>>> ListMemberIdsAsync(
+    public async Task<ServiceResult<IReadOnlyList<GroupMemberDto>>> ListMembersAsync(
         Guid groupId,
         CancellationToken cancellationToken = default)
     {
         var groupExists = await _db.Groups.AnyAsync(g => g.Id == groupId, cancellationToken);
         if (!groupExists)
-            return (ServiceResult<IReadOnlyList<Guid>>)NotFound(new NotFoundServiceError(
+            return (ServiceResult<IReadOnlyList<GroupMemberDto>>)NotFound(new NotFoundServiceError(
                 ErrorKeys.Groups.NotFoundMessage,
                 ErrorKeys.Groups.NotFound));
 
-        var userIds = await _db.UserGroups
+        var members = await _db.UserGroups
             .Where(ug => ug.GroupId == groupId)
-            .Select(ug => ug.UserId)
+            .Join(
+                _db.Users,
+                ug => ug.UserId,
+                u => u.Id,
+                (ug, u) => new GroupMemberDto
+                {
+                    UserId = u.Id,
+                    Email = u.Email ?? u.UserName ?? string.Empty,
+                    DisplayName = ((ApplicationUser)u).DisplayName,
+                    AccessLevel = ug.AccessLevel
+                })
+            .OrderBy(m => m.Email)
             .ToListAsync(cancellationToken);
 
-        return userIds;
+        return members;
     }
 
     public async Task<ServiceResult<IReadOnlyList<GroupListDto>>> GetMyGroupsAsync(
@@ -157,15 +194,16 @@ public sealed class GroupService : BaseCrudService<Group, GroupListDto, GroupDet
     {
         var groups = await _db.UserGroups
             .Where(ug => ug.UserId == userId)
-            .Join(_db.Groups.Where(g => g.Active), ug => ug.GroupId, g => g.Id, (_, g) => g)
-            .OrderBy(g => g.Name)
-            .Select(g => new GroupListDto
+            .Join(_db.Groups.Where(g => g.Active), ug => ug.GroupId, g => g.Id, (ug, g) => new { ug, g })
+            .OrderBy(x => x.g.Name)
+            .Select(x => new GroupListDto
             {
-                Id = g.Id,
-                Name = g.Name,
-                Description = g.Description,
-                CreatedAt = g.CreatedDate,
-                Active = g.Active
+                Id = x.g.Id,
+                Name = x.g.Name,
+                Description = x.g.Description,
+                CreatedAt = x.g.CreatedDate,
+                Active = x.g.Active,
+                AccessLevel = x.ug.AccessLevel
             })
             .ToListAsync(cancellationToken);
 

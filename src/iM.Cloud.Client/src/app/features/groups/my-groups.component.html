@@ -1,0 +1,26 @@
+<p-card header="My groups">
+  <p-table [value]="groups()" [loading]="loading()" dataKey="id" styleClass="p-datatable-sm">
+    <ng-template pTemplate="header">
+      <tr>
+        <th>Name</th>
+        <th>Description</th>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="body" let-group>
+      <tr>
+        <td>
+          <button type="button" class="group-link" (click)="openGroup(group)">
+            <i class="pi pi-users"></i>
+            {{ group.name }}
+          </button>
+        </td>
+        <td>{{ group.description || '—' }}</td>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="emptymessage">
+      <tr>
+        <td colspan="2">You are not a member of any group yet.</td>
+      </tr>
+    </ng-template>
+  </p-table>
+</p-card>

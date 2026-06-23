@@ -15,10 +15,11 @@ import {
   CreateShareRequest,
   FileItemDto,
   FileParameter,
-  FilesClient,
+  GroupAccessLevel,
+  GroupFilesClient,
+  GroupsClient,
 } from '@im-cloud/api';
-import { MessageService } from 'primeng/api';
-import { ConfirmationService, MenuItem } from 'primeng/api';
+import { ConfirmationService, MenuItem, MessageService } from 'primeng/api';
 import { Breadcrumb } from 'primeng/breadcrumb';
 import { Button } from 'primeng/button';
 import { Card } from 'primeng/card';
@@ -34,12 +35,13 @@ import { environment } from '../../../environments/environment';
 interface BreadcrumbItem {
   id: string | null;
   label: string;
+  groupRoot?: boolean;
 }
 
 type ShareExpiryPreset = 'never' | '1h' | '1d' | '7d' | '30d';
 
 @Component({
-  selector: 'app-files',
+  selector: 'app-group-files',
   imports: [
     FormsModule,
     Card,
@@ -52,12 +54,13 @@ type ShareExpiryPreset = 'never' | '1h' | '1d' | '7d' | '30d';
     Select,
     Tag,
   ],
-  templateUrl: './files.component.html',
-  styleUrl: './files.component.scss',
+  templateUrl: './group-files.component.html',
+  styleUrl: './group-files.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class FilesComponent implements OnInit {
-  private readonly filesClient = inject(FilesClient);
+export class GroupFilesComponent implements OnInit {
+  private readonly groupFilesClient = inject(GroupFilesClient);
+  private readonly groupsClient = inject(GroupsClient);
   private readonly http = inject(HttpClient);
   private readonly messages = inject(MessageService);
   private readonly confirmation = inject(ConfirmationService);
@@ -66,9 +69,20 @@ export class FilesComponent implements OnInit {
 
   readonly items = signal<FileItemDto[]>([]);
   readonly loading = signal(false);
-  readonly currentParentId = signal<string | null>(null);
+  readonly groupId = signal<string | null>(null);
+  readonly groupName = signal('Group');
+  readonly accessLevel = signal<GroupAccessLevel | undefined>(undefined);
+  readonly canWrite = computed(
+    () =>
+      this.accessLevel() !== undefined &&
+      this.accessLevel()! >= GroupAccessLevel.Write,
+  );
   readonly folderPathIds = signal<string[]>([]);
-  readonly breadcrumbs = signal<BreadcrumbItem[]>([{ id: null, label: 'nav.files' }]);
+  readonly currentParentId = signal<string | null>(null);
+  readonly breadcrumbs = signal<BreadcrumbItem[]>([
+    { id: null, label: 'My groups' },
+    { id: null, label: 'Group', groupRoot: true },
+  ]);
 
   readonly folderDialogVisible = signal(false);
   readonly newFolderName = signal('');
@@ -99,7 +113,7 @@ export class FilesComponent implements OnInit {
 
     const menuItems: MenuItem[] = [];
 
-    if (!item.isFolder) {
+    if (this.canWrite() && !item.isFolder) {
       menuItems.push({
         label: 'Share',
         icon: 'pi pi-share-alt',
@@ -107,14 +121,20 @@ export class FilesComponent implements OnInit {
       });
     }
 
-    menuItems.push({
-      label: 'Delete',
-      icon: 'pi pi-trash',
-      command: () => this.confirmDelete(item),
-    });
+    if (item.canDelete) {
+      menuItems.push({
+        label: 'Delete',
+        icon: 'pi pi-trash',
+        command: () => this.confirmDelete(item),
+      });
+    }
 
     return menuItems;
   });
+
+  canShowRowMenu(item: FileItemDto): boolean {
+    return !!item.canDelete || (this.canWrite() && !item.isFolder);
+  }
 
   ngOnInit(): void {
     this.router.events
@@ -126,20 +146,40 @@ export class FilesComponent implements OnInit {
   }
 
   private syncFromRoute(): void {
+    const groupId = this.route.snapshot.paramMap.get('groupId');
+    if (!groupId) return;
+
+    this.groupId.set(groupId);
+
     const pathParam = this.route.snapshot.paramMap.get('path');
     const ids = pathParam ? pathParam.split('/').filter(Boolean) : [];
 
     this.folderPathIds.set(ids);
     this.currentParentId.set(ids.length ? ids[ids.length - 1] : null);
-    this.breadcrumbs.set(this.buildBreadcrumbs(ids));
+    this.breadcrumbs.set(this.buildBreadcrumbs(groupId, ids));
+    this.loadGroupName(groupId);
     this.loadItems();
   }
 
-  private buildBreadcrumbs(ids: string[]): BreadcrumbItem[] {
-    const names = this.folderNames();
-    const crumbs: BreadcrumbItem[] = [{ id: null, label: 'nav.files' }];
+  private loadGroupName(groupId: string): void {
+    this.groupsClient.mine().subscribe({
+      next: (groups) => {
+        const group = groups?.find((g) => g.id === groupId);
+        this.groupName.set(group?.name ?? 'Group');
+        this.accessLevel.set(group?.accessLevel);
+        this.breadcrumbs.set(this.buildBreadcrumbs(groupId, this.folderPathIds()));
+      },
+    });
+  }
 
-    for (const id of ids) {
+  private buildBreadcrumbs(groupId: string, folderIds: string[]): BreadcrumbItem[] {
+    const names = this.folderNames();
+    const crumbs: BreadcrumbItem[] = [
+      { id: null, label: 'My groups' },
+      { id: groupId, label: this.groupName(), groupRoot: true },
+    ];
+
+    for (const id of folderIds) {
       crumbs.push({ id, label: names[id] ?? 'Folder' });
     }
 
@@ -150,17 +190,25 @@ export class FilesComponent implements OnInit {
     this.folderNames.update((map) => ({ ...map, [id]: name }));
   }
 
-  private navigateToPath(ids: string[]): void {
-    void this.router.navigate(ids.length ? ['/files', ...ids] : ['/files']);
+  private navigateToPath(folderIds: string[]): void {
+    const groupId = this.groupId();
+    if (!groupId) return;
+
+    void this.router.navigate(
+      folderIds.length ? ['/groups', groupId, ...folderIds] : ['/groups', groupId],
+    );
   }
 
   loadItems(): void {
+    const groupId = this.groupId();
+    if (!groupId) return;
+
     this.loading.set(true);
-    this.filesClient
-      .list(this.currentParentId())
+    this.groupFilesClient
+      .list(groupId, this.currentParentId())
       .pipe(finalize(() => this.loading.set(false)))
       .subscribe({
-        next: (items) => this.items.set(items),
+        next: (items) => this.items.set(items ?? []),
         error: () => this.items.set([]),
       });
   }
@@ -224,7 +272,18 @@ export class FilesComponent implements OnInit {
   }
 
   navigateTo(crumb: BreadcrumbItem, index: number): void {
-    const ids = index === 0 ? [] : this.folderPathIds().slice(0, index);
+    if (index === 0) {
+      void this.router.navigate(['/groups']);
+      return;
+    }
+
+    if (crumb.groupRoot) {
+      this.navigateToPath([]);
+      return;
+    }
+
+    const folderIndex = index - 2;
+    const ids = folderIndex < 0 ? [] : this.folderPathIds().slice(0, folderIndex + 1);
     this.navigateToPath(ids);
   }
 
@@ -241,14 +300,16 @@ export class FilesComponent implements OnInit {
   }
 
   createFolder(): void {
+    const groupId = this.groupId();
     const name = this.newFolderName().trim();
-    if (!name) return;
+    if (!groupId || !name) return;
 
     const request = new CreateFolderRequest({
       name,
       parentId: this.currentParentId() ?? undefined,
     });
-    this.filesClient.createFolder(request).subscribe({
+
+    this.groupFilesClient.createFolder(groupId, request).subscribe({
       next: () => {
         this.folderDialogVisible.set(false);
         this.messages.add({ severity: 'success', summary: 'Folder created' });
@@ -258,14 +319,15 @@ export class FilesComponent implements OnInit {
   }
 
   onFileSelected(event: Event): void {
+    const groupId = this.groupId();
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
-    if (!file) return;
+    if (!groupId || !file) return;
 
     const fileParam: FileParameter = { data: file, fileName: file.name };
     this.loading.set(true);
-    this.filesClient
-      .upload(this.currentParentId(), fileParam)
+    this.groupFilesClient
+      .upload(groupId, this.currentParentId(), fileParam)
       .pipe(
         finalize(() => {
           this.loading.set(false);
@@ -281,9 +343,10 @@ export class FilesComponent implements OnInit {
   }
 
   download(item: FileItemDto): void {
-    if (!item.id || item.isFolder) return;
+    const groupId = this.groupId();
+    if (!groupId || !item.id || item.isFolder) return;
 
-    const url = `${environment.apiUrl}/api/files/${item.id}/download`;
+    const url = `${environment.apiUrl}/api/groups/${groupId}/files/${item.id}/download`;
     this.http.get(url, { responseType: 'blob' }).subscribe({
       next: (blob) => {
         const objectUrl = URL.createObjectURL(blob);
@@ -297,9 +360,10 @@ export class FilesComponent implements OnInit {
   }
 
   private openInBrowser(item: FileItemDto): void {
-    if (!item.id) return;
+    const groupId = this.groupId();
+    if (!groupId || !item.id) return;
 
-    const url = `${environment.apiUrl}/api/files/${item.id}/download`;
+    const url = `${environment.apiUrl}/api/groups/${groupId}/files/${item.id}/download`;
     this.http.get(url, { responseType: 'blob' }).subscribe({
       next: (blob) => {
         const objectUrl = URL.createObjectURL(blob);
@@ -311,7 +375,8 @@ export class FilesComponent implements OnInit {
   }
 
   confirmDelete(item: FileItemDto): void {
-    if (!item.id) return;
+    const groupId = this.groupId();
+    if (!groupId || !item.id) return;
 
     const name = item.name ?? 'this item';
     const message = item.isFolder
@@ -325,7 +390,7 @@ export class FilesComponent implements OnInit {
       acceptButtonProps: { label: 'Delete', severity: 'danger' },
       rejectButtonProps: { label: 'Cancel', severity: 'secondary', outlined: true },
       accept: () => {
-        this.filesClient.delete(item.id!).subscribe({
+        this.groupFilesClient.delete(groupId, item.id!).subscribe({
           next: () => {
             this.messages.add({ severity: 'success', summary: 'Deleted' });
             this.handleDeletedItemInRoute(item);
@@ -355,8 +420,14 @@ export class FilesComponent implements OnInit {
     return `${(size / (1024 * 1024)).toFixed(1)} MB`;
   }
 
+  openRowMenu(event: Event, item: FileItemDto): void {
+    event.stopPropagation();
+    this.rowMenuItem.set(item);
+    this.rowMenu()?.toggle(event);
+  }
+
   openShareDialog(item: FileItemDto): void {
-    if (!item.id || item.isFolder) return;
+    if (!item.id || item.isFolder || !this.canWrite()) return;
 
     this.shareItem.set(item);
     this.shareExpiryPreset.set('never');
@@ -365,23 +436,18 @@ export class FilesComponent implements OnInit {
     this.shareDialogVisible.set(true);
   }
 
-  openRowMenu(event: Event, item: FileItemDto): void {
-    event.stopPropagation();
-    this.rowMenuItem.set(item);
-    this.rowMenu()?.toggle(event);
-  }
-
   createShare(): void {
+    const groupId = this.groupId();
     const item = this.shareItem();
-    if (!item?.id || this.creatingShare()) return;
+    if (!groupId || !item?.id || this.creatingShare()) return;
 
     const request = new CreateShareRequest({
       expiresAt: this.computeExpiresAt(this.shareExpiryPreset()),
     });
 
     this.creatingShare.set(true);
-    this.filesClient
-      .share(item.id, request)
+    this.groupFilesClient
+      .share(groupId, item.id, request)
       .pipe(finalize(() => this.creatingShare.set(false)))
       .subscribe({
         next: (link) => {

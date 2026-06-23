@@ -8,4 +8,5 @@ public sealed class FileItemDto
     public Guid? ParentId { get; set; }
     public long? Size { get; set; }
     public string? ContentType { get; set; }
+    public bool? CanDelete { get; set; }
 }

@@ -84,7 +84,8 @@ export interface IAdminGroupsClient {
     deactivate(id: string): Observable<FileResponse>;
     create(request: GroupDetailsDto): Observable<GroupDetailsDto>;
     addMember(groupId: string, request: AddGroupMemberRequest): Observable<FileResponse>;
-    listMembers(groupId: string): Observable<string[]>;
+    listMembers(groupId: string): Observable<GroupMemberDto[]>;
+    updateMemberAccess(groupId: string, userId: string, request: UpdateGroupMemberAccessRequest): Observable<FileResponse>;
     removeMember(groupId: string, userId: string): Observable<FileResponse>;
 }
 
@@ -425,7 +426,7 @@ export class AdminGroupsClient implements IAdminGroupsClient {
         return _observableOf(null as any);
     }
 
-    listMembers(groupId: string): Observable<string[]> {
+    listMembers(groupId: string): Observable<GroupMemberDto[]> {
         let url_ = this.baseUrl + "/api/admin/groups/{groupId}/members";
         if (groupId === undefined || groupId === null)
             throw new Error("The parameter 'groupId' must be defined.");
@@ -447,14 +448,14 @@ export class AdminGroupsClient implements IAdminGroupsClient {
                 try {
                     return this.processListMembers(response_ as any);
                 } catch (e) {
-                    return _observableThrow(e) as any as Observable<string[]>;
+                    return _observableThrow(e) as any as Observable<GroupMemberDto[]>;
                 }
             } else
-                return _observableThrow(response_) as any as Observable<string[]>;
+                return _observableThrow(response_) as any as Observable<GroupMemberDto[]>;
         }));
     }
 
-    protected processListMembers(response: HttpResponseBase): Observable<string[]> {
+    protected processListMembers(response: HttpResponseBase): Observable<GroupMemberDto[]> {
         const status = response.status;
         const responseBlob =
             response instanceof HttpResponse ? response.body :
@@ -468,13 +469,75 @@ export class AdminGroupsClient implements IAdminGroupsClient {
             if (Array.isArray(resultData200)) {
                 result200 = [] as any;
                 for (let item of resultData200)
-                    result200!.push(item);
+                    result200!.push(GroupMemberDto.fromJS(item));
             }
             else {
                 result200 = <any>null;
             }
             return _observableOf(result200);
             }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+
+    updateMemberAccess(groupId: string, userId: string, request: UpdateGroupMemberAccessRequest): Observable<FileResponse> {
+        let url_ = this.baseUrl + "/api/admin/groups/{groupId}/members/{userId}/access";
+        if (groupId === undefined || groupId === null)
+            throw new Error("The parameter 'groupId' must be defined.");
+        url_ = url_.replace("{groupId}", encodeURIComponent("" + groupId));
+        if (userId === undefined || userId === null)
+            throw new Error("The parameter 'userId' must be defined.");
+        url_ = url_.replace("{userId}", encodeURIComponent("" + userId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(request);
+
+        let options_ : any = {
+            body: content_,
+            observe: "response",
+            responseType: "blob",
+            headers: new HttpHeaders({
+                "Content-Type": "application/json",
+                "Accept": "application/octet-stream"
+            })
+        };
+
+        return this.http.request("put", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processUpdateMemberAccess(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processUpdateMemberAccess(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<FileResponse>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<FileResponse>;
+        }));
+    }
+
+    protected processUpdateMemberAccess(response: HttpResponseBase): Observable<FileResponse> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200 || status === 206) {
+            const contentDisposition = response.headers ? response.headers.get("content-disposition") : undefined;
+            let fileNameMatch = contentDisposition ? /filename\*=(?:(\\?['"])(.*?)\1|(?:[^\s]+'.*?')?([^;\n]*))/g.exec(contentDisposition) : undefined;
+            let fileName = fileNameMatch && fileNameMatch.length > 1 ? fileNameMatch[3] || fileNameMatch[2] : undefined;
+            if (fileName) {
+                fileName = decodeURIComponent(fileName);
+            } else {
+                fileNameMatch = contentDisposition ? /filename="?([^"]*?)"?(;|$)/g.exec(contentDisposition) : undefined;
+                fileName = fileNameMatch && fileNameMatch.length > 1 ? fileNameMatch[1] : undefined;
+            }
+            return _observableOf({ fileName: fileName, data: responseBlob as any, status: status, headers: _headers });
         } else if (status !== 200 && status !== 204) {
             return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
             return throwException("An unexpected server error occurred.", status, _responseText, _headers);
@@ -2044,6 +2107,8 @@ export interface IFilesClient {
     upload(parentId: string | null | undefined, file: FileParameter | null | undefined): Observable<FileItemDto>;
     delete(id: string): Observable<FileResponse>;
     download(id: string): Observable<void>;
+    share(id: string, request: CreateShareRequest): Observable<ShareLinkDto>;
+    revokeShare(token: string): Observable<FileResponse>;
 }
 
 @Injectable({
@@ -2324,6 +2389,478 @@ export class FilesClient implements IFilesClient {
         }
         return _observableOf(null as any);
     }
+
+    share(id: string, request: CreateShareRequest): Observable<ShareLinkDto> {
+        let url_ = this.baseUrl + "/api/files/{id}/share";
+        if (id === undefined || id === null)
+            throw new Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(request);
+
+        let options_ : any = {
+            body: content_,
+            observe: "response",
+            responseType: "blob",
+            headers: new HttpHeaders({
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            })
+        };
+
+        return this.http.request("post", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processShare(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processShare(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<ShareLinkDto>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<ShareLinkDto>;
+        }));
+    }
+
+    protected processShare(response: HttpResponseBase): Observable<ShareLinkDto> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result200 = ShareLinkDto.fromJS(resultData200);
+            return _observableOf(result200);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+
+    revokeShare(token: string): Observable<FileResponse> {
+        let url_ = this.baseUrl + "/api/files/shares/{token}";
+        if (token === undefined || token === null)
+            throw new Error("The parameter 'token' must be defined.");
+        url_ = url_.replace("{token}", encodeURIComponent("" + token));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_ : any = {
+            observe: "response",
+            responseType: "blob",
+            headers: new HttpHeaders({
+                "Accept": "application/octet-stream"
+            })
+        };
+
+        return this.http.request("delete", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processRevokeShare(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processRevokeShare(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<FileResponse>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<FileResponse>;
+        }));
+    }
+
+    protected processRevokeShare(response: HttpResponseBase): Observable<FileResponse> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200 || status === 206) {
+            const contentDisposition = response.headers ? response.headers.get("content-disposition") : undefined;
+            let fileNameMatch = contentDisposition ? /filename\*=(?:(\\?['"])(.*?)\1|(?:[^\s]+'.*?')?([^;\n]*))/g.exec(contentDisposition) : undefined;
+            let fileName = fileNameMatch && fileNameMatch.length > 1 ? fileNameMatch[3] || fileNameMatch[2] : undefined;
+            if (fileName) {
+                fileName = decodeURIComponent(fileName);
+            } else {
+                fileNameMatch = contentDisposition ? /filename="?([^"]*?)"?(;|$)/g.exec(contentDisposition) : undefined;
+                fileName = fileNameMatch && fileNameMatch.length > 1 ? fileNameMatch[1] : undefined;
+            }
+            return _observableOf({ fileName: fileName, data: responseBlob as any, status: status, headers: _headers });
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+}
+
+export interface IGroupFilesClient {
+    list(groupId: string, parentId: string | null | undefined): Observable<FileItemDto[]>;
+    createFolder(groupId: string, request: CreateFolderRequest): Observable<FileItemDto>;
+    upload(groupId: string, parentId: string | null | undefined, file: FileParameter | null | undefined): Observable<FileItemDto>;
+    delete(groupId: string, id: string): Observable<FileResponse>;
+    download(groupId: string, id: string): Observable<void>;
+    share(groupId: string, id: string, request: CreateShareRequest): Observable<ShareLinkDto>;
+}
+
+@Injectable({
+    providedIn: 'root'
+})
+export class GroupFilesClient implements IGroupFilesClient {
+    private http: HttpClient;
+    private baseUrl: string;
+    protected jsonParseReviver: ((key: string, value: any) => any) | undefined = undefined;
+
+    constructor(@Inject(HttpClient) http: HttpClient, @Optional() @Inject(API_BASE_URL) baseUrl?: string) {
+        this.http = http;
+        this.baseUrl = baseUrl ?? "";
+    }
+
+    list(groupId: string, parentId: string | null | undefined): Observable<FileItemDto[]> {
+        let url_ = this.baseUrl + "/api/groups/{groupId}/files?";
+        if (groupId === undefined || groupId === null)
+            throw new Error("The parameter 'groupId' must be defined.");
+        url_ = url_.replace("{groupId}", encodeURIComponent("" + groupId));
+        if (parentId !== undefined && parentId !== null)
+            url_ += "parentId=" + encodeURIComponent("" + parentId) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_ : any = {
+            observe: "response",
+            responseType: "blob",
+            headers: new HttpHeaders({
+                "Accept": "application/json"
+            })
+        };
+
+        return this.http.request("get", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processList(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processList(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<FileItemDto[]>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<FileItemDto[]>;
+        }));
+    }
+
+    protected processList(response: HttpResponseBase): Observable<FileItemDto[]> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            if (Array.isArray(resultData200)) {
+                result200 = [] as any;
+                for (let item of resultData200)
+                    result200!.push(FileItemDto.fromJS(item));
+            }
+            else {
+                result200 = <any>null;
+            }
+            return _observableOf(result200);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+
+    createFolder(groupId: string, request: CreateFolderRequest): Observable<FileItemDto> {
+        let url_ = this.baseUrl + "/api/groups/{groupId}/files/folders";
+        if (groupId === undefined || groupId === null)
+            throw new Error("The parameter 'groupId' must be defined.");
+        url_ = url_.replace("{groupId}", encodeURIComponent("" + groupId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(request);
+
+        let options_ : any = {
+            body: content_,
+            observe: "response",
+            responseType: "blob",
+            headers: new HttpHeaders({
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            })
+        };
+
+        return this.http.request("post", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processCreateFolder(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processCreateFolder(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<FileItemDto>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<FileItemDto>;
+        }));
+    }
+
+    protected processCreateFolder(response: HttpResponseBase): Observable<FileItemDto> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result200 = FileItemDto.fromJS(resultData200);
+            return _observableOf(result200);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+
+    upload(groupId: string, parentId: string | null | undefined, file: FileParameter | null | undefined): Observable<FileItemDto> {
+        let url_ = this.baseUrl + "/api/groups/{groupId}/files/upload";
+        if (groupId === undefined || groupId === null)
+            throw new Error("The parameter 'groupId' must be defined.");
+        url_ = url_.replace("{groupId}", encodeURIComponent("" + groupId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = new FormData();
+        if (parentId !== null && parentId !== undefined)
+            content_.append("parentId", parentId.toString());
+        if (file !== null && file !== undefined)
+            content_.append("file", file.data, file.fileName ? file.fileName : "file");
+
+        let options_ : any = {
+            body: content_,
+            observe: "response",
+            responseType: "blob",
+            headers: new HttpHeaders({
+                "Accept": "application/json"
+            })
+        };
+
+        return this.http.request("post", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processUpload(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processUpload(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<FileItemDto>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<FileItemDto>;
+        }));
+    }
+
+    protected processUpload(response: HttpResponseBase): Observable<FileItemDto> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result200 = FileItemDto.fromJS(resultData200);
+            return _observableOf(result200);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+
+    delete(groupId: string, id: string): Observable<FileResponse> {
+        let url_ = this.baseUrl + "/api/groups/{groupId}/files/{id}";
+        if (groupId === undefined || groupId === null)
+            throw new Error("The parameter 'groupId' must be defined.");
+        url_ = url_.replace("{groupId}", encodeURIComponent("" + groupId));
+        if (id === undefined || id === null)
+            throw new Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_ : any = {
+            observe: "response",
+            responseType: "blob",
+            headers: new HttpHeaders({
+                "Accept": "application/octet-stream"
+            })
+        };
+
+        return this.http.request("delete", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processDelete(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processDelete(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<FileResponse>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<FileResponse>;
+        }));
+    }
+
+    protected processDelete(response: HttpResponseBase): Observable<FileResponse> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200 || status === 206) {
+            const contentDisposition = response.headers ? response.headers.get("content-disposition") : undefined;
+            let fileNameMatch = contentDisposition ? /filename\*=(?:(\\?['"])(.*?)\1|(?:[^\s]+'.*?')?([^;\n]*))/g.exec(contentDisposition) : undefined;
+            let fileName = fileNameMatch && fileNameMatch.length > 1 ? fileNameMatch[3] || fileNameMatch[2] : undefined;
+            if (fileName) {
+                fileName = decodeURIComponent(fileName);
+            } else {
+                fileNameMatch = contentDisposition ? /filename="?([^"]*?)"?(;|$)/g.exec(contentDisposition) : undefined;
+                fileName = fileNameMatch && fileNameMatch.length > 1 ? fileNameMatch[1] : undefined;
+            }
+            return _observableOf({ fileName: fileName, data: responseBlob as any, status: status, headers: _headers });
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+
+    download(groupId: string, id: string): Observable<void> {
+        let url_ = this.baseUrl + "/api/groups/{groupId}/files/{id}/download";
+        if (groupId === undefined || groupId === null)
+            throw new Error("The parameter 'groupId' must be defined.");
+        url_ = url_.replace("{groupId}", encodeURIComponent("" + groupId));
+        if (id === undefined || id === null)
+            throw new Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_ : any = {
+            observe: "response",
+            responseType: "blob",
+            headers: new HttpHeaders({
+            })
+        };
+
+        return this.http.request("get", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processDownload(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processDownload(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<void>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<void>;
+        }));
+    }
+
+    protected processDownload(response: HttpResponseBase): Observable<void> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return _observableOf(null as any);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+
+    share(groupId: string, id: string, request: CreateShareRequest): Observable<ShareLinkDto> {
+        let url_ = this.baseUrl + "/api/groups/{groupId}/files/{id}/share";
+        if (groupId === undefined || groupId === null)
+            throw new Error("The parameter 'groupId' must be defined.");
+        url_ = url_.replace("{groupId}", encodeURIComponent("" + groupId));
+        if (id === undefined || id === null)
+            throw new Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(request);
+
+        let options_ : any = {
+            body: content_,
+            observe: "response",
+            responseType: "blob",
+            headers: new HttpHeaders({
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            })
+        };
+
+        return this.http.request("post", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processShare(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processShare(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<ShareLinkDto>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<ShareLinkDto>;
+        }));
+    }
+
+    protected processShare(response: HttpResponseBase): Observable<ShareLinkDto> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result200 = ShareLinkDto.fromJS(resultData200);
+            return _observableOf(result200);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
 }
 
 export interface INavigationClient {
@@ -2406,6 +2943,127 @@ export class NavigationClient implements INavigationClient {
     }
 }
 
+export interface IPublicSharesClient {
+    get(token: string): Observable<SharePreviewDto>;
+    getContent(token: string, disposition: string | undefined): Observable<void>;
+}
+
+@Injectable({
+    providedIn: 'root'
+})
+export class PublicSharesClient implements IPublicSharesClient {
+    private http: HttpClient;
+    private baseUrl: string;
+    protected jsonParseReviver: ((key: string, value: any) => any) | undefined = undefined;
+
+    constructor(@Inject(HttpClient) http: HttpClient, @Optional() @Inject(API_BASE_URL) baseUrl?: string) {
+        this.http = http;
+        this.baseUrl = baseUrl ?? "";
+    }
+
+    get(token: string): Observable<SharePreviewDto> {
+        let url_ = this.baseUrl + "/api/public/shares/{token}";
+        if (token === undefined || token === null)
+            throw new Error("The parameter 'token' must be defined.");
+        url_ = url_.replace("{token}", encodeURIComponent("" + token));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_ : any = {
+            observe: "response",
+            responseType: "blob",
+            headers: new HttpHeaders({
+                "Accept": "application/json"
+            })
+        };
+
+        return this.http.request("get", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processGet(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processGet(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<SharePreviewDto>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<SharePreviewDto>;
+        }));
+    }
+
+    protected processGet(response: HttpResponseBase): Observable<SharePreviewDto> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result200 = SharePreviewDto.fromJS(resultData200);
+            return _observableOf(result200);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+
+    getContent(token: string, disposition: string | undefined): Observable<void> {
+        let url_ = this.baseUrl + "/api/public/shares/{token}/content?";
+        if (token === undefined || token === null)
+            throw new Error("The parameter 'token' must be defined.");
+        url_ = url_.replace("{token}", encodeURIComponent("" + token));
+        if (disposition === null)
+            throw new Error("The parameter 'disposition' cannot be null.");
+        else if (disposition !== undefined)
+            url_ += "disposition=" + encodeURIComponent("" + disposition) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_ : any = {
+            observe: "response",
+            responseType: "blob",
+            headers: new HttpHeaders({
+            })
+        };
+
+        return this.http.request("get", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processGetContent(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processGetContent(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<void>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<void>;
+        }));
+    }
+
+    protected processGetContent(response: HttpResponseBase): Observable<void> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return _observableOf(null as any);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+}
+
 export class QueryResultOfGroupListDto implements IQueryResultOfGroupListDto {
     items?: GroupListDto[];
     totalItems?: number;
@@ -2460,6 +3118,7 @@ export class GroupListDto implements IGroupListDto {
     description?: string | undefined;
     createdAt?: Date | undefined;
     active?: boolean;
+    accessLevel?: GroupAccessLevel | undefined;
 
     constructor(data?: IGroupListDto) {
         if (data) {
@@ -2477,6 +3136,7 @@ export class GroupListDto implements IGroupListDto {
             this.description = _data["description"];
             this.createdAt = _data["createdAt"] ? new Date(_data["createdAt"].toString()) : <any>undefined;
             this.active = _data["active"];
+            this.accessLevel = _data["accessLevel"];
         }
     }
 
@@ -2494,6 +3154,7 @@ export class GroupListDto implements IGroupListDto {
         data["description"] = this.description;
         data["createdAt"] = this.createdAt ? this.createdAt.toISOString() : <any>undefined;
         data["active"] = this.active;
+        data["accessLevel"] = this.accessLevel;
         return data;
     }
 }
@@ -2504,6 +3165,13 @@ export interface IGroupListDto {
     description?: string | undefined;
     createdAt?: Date | undefined;
     active?: boolean;
+    accessLevel?: GroupAccessLevel | undefined;
+}
+
+export enum GroupAccessLevel {
+    Read = 0,
+    Write = 1,
+    Admin = 2,
 }
 
 export class PrimeTableMetaData implements IPrimeTableMetaData {
@@ -2689,6 +3357,7 @@ export interface IGroupDetailsDto {
 
 export class AddGroupMemberRequest implements IAddGroupMemberRequest {
     userId?: string;
+    accessLevel?: GroupAccessLevel | undefined;
 
     constructor(data?: IAddGroupMemberRequest) {
         if (data) {
@@ -2702,6 +3371,7 @@ export class AddGroupMemberRequest implements IAddGroupMemberRequest {
     init(_data?: any) {
         if (_data) {
             this.userId = _data["userId"];
+            this.accessLevel = _data["accessLevel"];
         }
     }
 
@@ -2715,12 +3385,98 @@ export class AddGroupMemberRequest implements IAddGroupMemberRequest {
     toJSON(data?: any) {
         data = typeof data === 'object' ? data : {};
         data["userId"] = this.userId;
+        data["accessLevel"] = this.accessLevel;
         return data;
     }
 }
 
 export interface IAddGroupMemberRequest {
     userId?: string;
+    accessLevel?: GroupAccessLevel | undefined;
+}
+
+export class UpdateGroupMemberAccessRequest implements IUpdateGroupMemberAccessRequest {
+    accessLevel?: GroupAccessLevel;
+
+    constructor(data?: IUpdateGroupMemberAccessRequest) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (<any>this)[property] = (<any>data)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            this.accessLevel = _data["accessLevel"];
+        }
+    }
+
+    static fromJS(data: any): UpdateGroupMemberAccessRequest {
+        data = typeof data === 'object' ? data : {};
+        let result = new UpdateGroupMemberAccessRequest();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        data["accessLevel"] = this.accessLevel;
+        return data;
+    }
+}
+
+export interface IUpdateGroupMemberAccessRequest {
+    accessLevel?: GroupAccessLevel;
+}
+
+export class GroupMemberDto implements IGroupMemberDto {
+    userId?: string;
+    email?: string;
+    displayName?: string | undefined;
+    accessLevel?: GroupAccessLevel;
+
+    constructor(data?: IGroupMemberDto) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (<any>this)[property] = (<any>data)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            this.userId = _data["userId"];
+            this.email = _data["email"];
+            this.displayName = _data["displayName"];
+            this.accessLevel = _data["accessLevel"];
+        }
+    }
+
+    static fromJS(data: any): GroupMemberDto {
+        data = typeof data === 'object' ? data : {};
+        let result = new GroupMemberDto();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        data["userId"] = this.userId;
+        data["email"] = this.email;
+        data["displayName"] = this.displayName;
+        data["accessLevel"] = this.accessLevel;
+        return data;
+    }
+}
+
+export interface IGroupMemberDto {
+    userId?: string;
+    email?: string;
+    displayName?: string | undefined;
+    accessLevel?: GroupAccessLevel;
 }
 
 export class QueryResultOfPermissionListDto implements IQueryResultOfPermissionListDto {
@@ -3554,6 +4310,7 @@ export class FileItemDto implements IFileItemDto {
     parentId?: string | undefined;
     size?: number | undefined;
     contentType?: string | undefined;
+    canDelete?: boolean | undefined;
 
     constructor(data?: IFileItemDto) {
         if (data) {
@@ -3572,6 +4329,7 @@ export class FileItemDto implements IFileItemDto {
             this.parentId = _data["parentId"];
             this.size = _data["size"];
             this.contentType = _data["contentType"];
+            this.canDelete = _data["canDelete"];
         }
     }
 
@@ -3590,6 +4348,7 @@ export class FileItemDto implements IFileItemDto {
         data["parentId"] = this.parentId;
         data["size"] = this.size;
         data["contentType"] = this.contentType;
+        data["canDelete"] = this.canDelete;
         return data;
     }
 }
@@ -3601,6 +4360,7 @@ export interface IFileItemDto {
     parentId?: string | undefined;
     size?: number | undefined;
     contentType?: string | undefined;
+    canDelete?: boolean | undefined;
 }
 
 export class CreateFolderRequest implements ICreateFolderRequest {
@@ -3641,6 +4401,100 @@ export class CreateFolderRequest implements ICreateFolderRequest {
 export interface ICreateFolderRequest {
     name?: string;
     parentId?: string | undefined;
+}
+
+export class ShareLinkDto implements IShareLinkDto {
+    token?: string;
+    fileName?: string;
+    expiresAt?: Date | undefined;
+    accessLevel?: ShareAccessLevel;
+
+    constructor(data?: IShareLinkDto) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (<any>this)[property] = (<any>data)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            this.token = _data["token"];
+            this.fileName = _data["fileName"];
+            this.expiresAt = _data["expiresAt"] ? new Date(_data["expiresAt"].toString()) : <any>undefined;
+            this.accessLevel = _data["accessLevel"];
+        }
+    }
+
+    static fromJS(data: any): ShareLinkDto {
+        data = typeof data === 'object' ? data : {};
+        let result = new ShareLinkDto();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        data["token"] = this.token;
+        data["fileName"] = this.fileName;
+        data["expiresAt"] = this.expiresAt ? this.expiresAt.toISOString() : <any>undefined;
+        data["accessLevel"] = this.accessLevel;
+        return data;
+    }
+}
+
+export interface IShareLinkDto {
+    token?: string;
+    fileName?: string;
+    expiresAt?: Date | undefined;
+    accessLevel?: ShareAccessLevel;
+}
+
+export enum ShareAccessLevel {
+    Read = 0,
+    Write = 1,
+    Modify = 2,
+}
+
+export class CreateShareRequest implements ICreateShareRequest {
+    expiresAt?: Date | undefined;
+    accessLevel?: ShareAccessLevel | undefined;
+
+    constructor(data?: ICreateShareRequest) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (<any>this)[property] = (<any>data)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            this.expiresAt = _data["expiresAt"] ? new Date(_data["expiresAt"].toString()) : <any>undefined;
+            this.accessLevel = _data["accessLevel"];
+        }
+    }
+
+    static fromJS(data: any): CreateShareRequest {
+        data = typeof data === 'object' ? data : {};
+        let result = new CreateShareRequest();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        data["expiresAt"] = this.expiresAt ? this.expiresAt.toISOString() : <any>undefined;
+        data["accessLevel"] = this.accessLevel;
+        return data;
+    }
+}
+
+export interface ICreateShareRequest {
+    expiresAt?: Date | undefined;
+    accessLevel?: ShareAccessLevel | undefined;
 }
 
 export class NavigationItemDto implements INavigationItemDto {
@@ -3693,6 +4547,58 @@ export interface INavigationItemDto {
     icon?: string;
     path?: string;
     order?: number;
+}
+
+export class SharePreviewDto implements ISharePreviewDto {
+    fileName?: string;
+    contentType?: string | undefined;
+    size?: number | undefined;
+    expiresAt?: Date | undefined;
+    accessLevel?: ShareAccessLevel;
+
+    constructor(data?: ISharePreviewDto) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (<any>this)[property] = (<any>data)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            this.fileName = _data["fileName"];
+            this.contentType = _data["contentType"];
+            this.size = _data["size"];
+            this.expiresAt = _data["expiresAt"] ? new Date(_data["expiresAt"].toString()) : <any>undefined;
+            this.accessLevel = _data["accessLevel"];
+        }
+    }
+
+    static fromJS(data: any): SharePreviewDto {
+        data = typeof data === 'object' ? data : {};
+        let result = new SharePreviewDto();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        data["fileName"] = this.fileName;
+        data["contentType"] = this.contentType;
+        data["size"] = this.size;
+        data["expiresAt"] = this.expiresAt ? this.expiresAt.toISOString() : <any>undefined;
+        data["accessLevel"] = this.accessLevel;
+        return data;
+    }
+}
+
+export interface ISharePreviewDto {
+    fileName?: string;
+    contentType?: string | undefined;
+    size?: number | undefined;
+    expiresAt?: Date | undefined;
+    accessLevel?: ShareAccessLevel;
 }
 
 export interface FileParameter {

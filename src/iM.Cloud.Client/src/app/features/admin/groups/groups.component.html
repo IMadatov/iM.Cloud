@@ -1,0 +1,65 @@
+<im-generic-table
+  [columns]="columns"
+  [dataSource]="loadGroups"
+  [config]="tableConfig"
+>
+  <h2 tableHeader>Groups</h2>
+
+  <p-button
+    tableButtons
+    label="New group"
+    icon="pi pi-plus"
+    (onClick)="openCreate()"
+  />
+
+  <ng-template imCellTemplate="active" let-row>
+    <p-tag
+      [severity]="row.active ? 'success' : 'danger'"
+      [value]="row.active ? 'Active' : 'Inactive'"
+    />
+  </ng-template>
+
+  <ng-template imCellTemplate="createdAt" let-row>
+    @if (row.createdAt) {
+      {{ row.createdAt | date: 'medium' }}
+    }
+  </ng-template>
+
+  <ng-template imCellTemplate="actions" let-row>
+    <div class="groups-actions">
+      <p-button
+        icon="pi pi-users"
+        [text]="true"
+        [rounded]="true"
+        severity="info"
+        (onClick)="openMembers(row); $event.stopPropagation()"
+      />
+      <p-button
+        icon="pi pi-pencil"
+        [text]="true"
+        [rounded]="true"
+        severity="secondary"
+        [loading]="editLoading()"
+        (onClick)="openEdit(row); $event.stopPropagation()"
+      />
+      <p-button
+        icon="pi pi-trash"
+        [text]="true"
+        [rounded]="true"
+        severity="danger"
+        (onClick)="confirmDelete(row); $event.stopPropagation()"
+      />
+    </div>
+  </ng-template>
+</im-generic-table>
+
+<app-group-form-dialog
+  [(visible)]="dialogVisible"
+  [group]="editingGroup()"
+  (saved)="onSaved()"
+/>
+
+<app-group-members-dialog
+  [(visible)]="membersDialogVisible"
+  [group]="membersGroup()"
+/>

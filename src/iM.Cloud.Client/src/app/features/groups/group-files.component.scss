@@ -51,6 +51,11 @@
   pointer-events: none;
 }
 
+:host ::ng-deep .row-actions .action-placeholder {
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .w-full {
   width: 100%;
 }

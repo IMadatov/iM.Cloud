@@ -5,12 +5,20 @@ import { permissionGuard } from './core/auth/permission.guard';
 import { LoginComponent } from './features/auth/login/login.component';
 import { MainLayoutComponent } from './layout/main-layout/main-layout.component';
 import { filesPathMatcher } from './features/files/files-route.matcher';
+import { groupsPathMatcher } from './features/groups/groups-path.matcher';
 
 export const routes: Routes = [
   {
     path: 'login',
     canActivate: [guestGuard],
     component: LoginComponent,
+  },
+  {
+    path: 'share/:token',
+    loadComponent: () =>
+      import('./features/share/share-preview.component').then(
+        (m) => m.SharePreviewComponent,
+      ),
   },
   {
     path: '',
@@ -32,6 +40,20 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'groups',
+        loadComponent: () =>
+          import('./features/groups/my-groups.component').then(
+            (m) => m.MyGroupsComponent,
+          ),
+      },
+      {
+        matcher: groupsPathMatcher,
+        loadComponent: () =>
+          import('./features/groups/group-files.component').then(
+            (m) => m.GroupFilesComponent,
+          ),
+      },
+      {
         path: 'admin/users',
         canActivate: [permissionGuard],
         data: { permission: 'users.read' },
@@ -47,6 +69,15 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/admin/roles/roles.component').then(
             (m) => m.RolesComponent,
+          ),
+      },
+      {
+        path: 'admin/groups',
+        canActivate: [permissionGuard],
+        data: { permission: 'groups.read' },
+        loadComponent: () =>
+          import('./features/admin/groups/groups.component').then(
+            (m) => m.GroupsComponent,
           ),
       },
       {

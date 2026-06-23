@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using iM.Cloud.Infrastructure.Persistence;
 
@@ -10,9 +11,11 @@ using iM.Cloud.Infrastructure.Persistence;
 namespace iM.Cloud.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260623070414_FileShares")]
+    partial class FileShares
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "9.0.9");
@@ -132,9 +135,6 @@ namespace iM.Cloud.Infrastructure.Persistence.Migrations
                     b.Property<DateTime?>("CreatedDate")
                         .HasColumnType("TEXT");
 
-                    b.Property<Guid?>("GroupId")
-                        .HasColumnType("TEXT");
-
                     b.Property<bool>("IsFolder")
                         .HasColumnType("INTEGER");
 
@@ -161,19 +161,13 @@ namespace iM.Cloud.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("GroupId");
-
                     b.HasIndex("ParentId");
 
                     b.HasIndex("StorageObjectId");
 
-                    b.HasIndex("GroupId", "ParentId", "Name")
-                        .IsUnique()
-                        .HasFilter("Active = 1 AND GroupId IS NOT NULL");
-
                     b.HasIndex("OwnerId", "ParentId", "Name")
                         .IsUnique()
-                        .HasFilter("Active = 1 AND GroupId IS NULL");
+                        .HasFilter("Active = 1");
 
                     b.ToTable("FileItems", (string)null);
                 });
@@ -424,9 +418,6 @@ namespace iM.Cloud.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
-                    b.Property<int>("AccessLevel")
-                        .HasColumnType("INTEGER");
-
                     b.Property<bool>("Active")
                         .HasColumnType("INTEGER");
 
@@ -667,11 +658,6 @@ namespace iM.Cloud.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("iM.Cloud.Domain.Entities.FileItem", b =>
                 {
-                    b.HasOne("iM.Cloud.Domain.Entities.Group", null)
-                        .WithMany()
-                        .HasForeignKey("GroupId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
                     b.HasOne("iM.Cloud.Domain.Entities.FileItem", null)
                         .WithMany()
                         .HasForeignKey("ParentId")

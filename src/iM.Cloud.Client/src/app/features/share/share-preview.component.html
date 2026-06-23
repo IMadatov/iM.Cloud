@@ -1,0 +1,32 @@
+<div class="share-preview-page">
+  <p-card>
+    @if (loading()) {
+      <p class="share-preview-status">Loading shared file...</p>
+    } @else if (error() || !preview()) {
+      <p class="share-preview-status share-preview-status--error">
+        This link is invalid or has expired.
+      </p>
+    } @else {
+      <header class="share-preview-header">
+        <h1>{{ preview()!.fileName }}</h1>
+        @if (expiryLabel(); as label) {
+          <p class="share-preview-expiry">{{ label }}</p>
+        }
+      </header>
+
+      @if (isImage()) {
+        <img class="share-preview-image" [src]="contentUrl()" [alt]="preview()!.fileName" />
+      } @else if (isPdf()) {
+        <iframe class="share-preview-frame" [src]="contentUrl()" [title]="preview()!.fileName ?? 'PDF'"></iframe>
+      } @else {
+        <p class="share-preview-status">Preview is not available for this file type.</p>
+      }
+
+      <div class="share-preview-actions">
+        <a [href]="downloadUrl()" download>
+          <p-button label="Download" icon="pi pi-download" />
+        </a>
+      </div>
+    }
+  </p-card>
+</div>

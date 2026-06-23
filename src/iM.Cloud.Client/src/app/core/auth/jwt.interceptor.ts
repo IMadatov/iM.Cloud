@@ -8,9 +8,10 @@ export const jwtInterceptor: HttpInterceptorFn = (req, next) => {
   const token = auth.getAccessToken();
   const isAuthEndpoint =
     req.url.includes('/api/auth/login') || req.url.includes('/api/auth/refresh');
+  const isPublicEndpoint = req.url.includes('/api/public/');
 
   const authedReq =
-    token && !isAuthEndpoint
+    token && !isAuthEndpoint && !isPublicEndpoint
       ? req.clone({ setHeaders: { Authorization: `Bearer ${token}` } })
       : req;
 
