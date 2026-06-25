@@ -35,6 +35,20 @@ public interface IFileService
         Guid userId,
         CancellationToken cancellationToken = default);
 
+    Task<ServiceResult<FileItemDto>> RenameAsync(
+        Guid id,
+        RenameFileRequest request,
+        Guid userId,
+        string? userName,
+        CancellationToken cancellationToken = default);
+
+    Task<ServiceResult<FileItemDto>> MoveAsync(
+        Guid id,
+        MoveFileRequest request,
+        Guid userId,
+        string? userName,
+        CancellationToken cancellationToken = default);
+
     Task<ServiceResult<ShareLinkDto>> CreateShareAsync(
         Guid fileId,
         Guid userId,
@@ -95,5 +109,21 @@ public interface IFileService
         Guid groupId,
         Guid id,
         Guid userId,
+        CancellationToken cancellationToken = default);
+
+    Task<ServiceResult<FileItemDto>> RenameGroupAsync(
+        Guid groupId,
+        Guid id,
+        RenameFileRequest request,
+        Guid userId,
+        string? userName,
+        CancellationToken cancellationToken = default);
+
+    Task<ServiceResult<FileItemDto>> MoveGroupAsync(
+        Guid groupId,
+        Guid id,
+        MoveFileRequest request,
+        Guid userId,
+        string? userName,
         CancellationToken cancellationToken = default);
 }

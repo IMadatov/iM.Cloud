@@ -18,6 +18,8 @@ import {
   GroupAccessLevel,
   GroupFilesClient,
   GroupsClient,
+  MoveFileRequest,
+  RenameFileRequest,
 } from '@im-cloud/api';
 import { ConfirmationService, MenuItem, MessageService } from 'primeng/api';
 import { Breadcrumb } from 'primeng/breadcrumb';
@@ -29,8 +31,13 @@ import { Menu } from 'primeng/menu';
 import { Select } from 'primeng/select';
 import { TableModule } from 'primeng/table';
 import { Tag } from 'primeng/tag';
-import { filter, finalize, startWith } from 'rxjs';
+import { filter, finalize, firstValueFrom, startWith } from 'rxjs';
 import { environment } from '../../../environments/environment';
+import {
+  FileMovedEvent,
+  MoveFileDialogComponent,
+} from '../files/dialogs/move-file-dialog.component';
+import { RenameFileDialogComponent } from '../files/dialogs/rename-file-dialog.component';
 
 interface BreadcrumbItem {
   id: string | null;
@@ -53,6 +60,8 @@ type ShareExpiryPreset = 'never' | '1h' | '1d' | '7d' | '30d';
     Menu,
     Select,
     Tag,
+    RenameFileDialogComponent,
+    MoveFileDialogComponent,
   ],
   templateUrl: './group-files.component.html',
   styleUrl: './group-files.component.scss',
@@ -94,6 +103,15 @@ export class GroupFilesComponent implements OnInit {
   readonly shareExpiresAt = signal<Date | null>(null);
   readonly creatingShare = signal(false);
 
+  readonly renameDialogVisible = signal(false);
+  readonly renameItem = signal<FileItemDto | null>(null);
+
+  readonly moveDialogVisible = signal(false);
+  readonly moveItem = signal<FileItemDto | null>(null);
+  readonly excludedMoveFolderIds = signal<ReadonlySet<string>>(new Set());
+  readonly moveInitialPathIds = signal<string[]>([]);
+  readonly moveInitialFolderNames = signal<Record<string, string>>({});
+
   protected readonly shareExpiryOptions: { label: string; value: ShareExpiryPreset }[] = [
     { label: 'Never', value: 'never' },
     { label: '1 hour', value: '1h' },
@@ -112,6 +130,21 @@ export class GroupFilesComponent implements OnInit {
     if (!item) return [];
 
     const menuItems: MenuItem[] = [];
+
+    if (this.canWrite()) {
+      menuItems.push(
+        {
+          label: 'Rename',
+          icon: 'pi pi-pencil',
+          command: () => this.openRenameDialog(item),
+        },
+        {
+          label: 'Move',
+          icon: 'pi pi-arrow-right-arrow-left',
+          command: () => void this.openMoveDialog(item),
+        },
+      );
+    }
 
     if (this.canWrite() && !item.isFolder) {
       menuItems.push({
@@ -133,7 +166,7 @@ export class GroupFilesComponent implements OnInit {
   });
 
   canShowRowMenu(item: FileItemDto): boolean {
-    return !!item.canDelete || (this.canWrite() && !item.isFolder);
+    return !!item.canDelete || this.canWrite();
   }
 
   ngOnInit(): void {
@@ -411,6 +444,158 @@ export class GroupFilesComponent implements OnInit {
       const parentIds = deletedIndex === 0 ? [] : pathIds.slice(0, deletedIndex);
       this.navigateToPath(parentIds);
     }
+  }
+
+  private handleMovedItemInRoute(item: FileItemDto): void {
+    if (!item.id) return;
+
+    const pathIds = this.folderPathIds();
+    const movedIndex = pathIds.indexOf(item.id);
+
+    if (movedIndex >= 0) {
+      const parentIds = movedIndex === 0 ? [] : pathIds.slice(0, movedIndex);
+      this.navigateToPath(parentIds);
+    }
+  }
+
+  openRenameDialog(item: FileItemDto): void {
+    if (!this.canWrite()) return;
+
+    this.renameItem.set(item);
+    this.renameDialogVisible.set(true);
+  }
+
+  async openMoveDialog(item: FileItemDto): Promise<void> {
+    if (!this.canWrite()) return;
+
+    const excluded = new Set<string>();
+    if (item.isFolder && item.id) {
+      excluded.add(item.id);
+      const descendants = await this.collectDescendantFolderIds(item.id);
+      descendants.forEach((id) => excluded.add(id));
+    }
+
+    this.moveItem.set(item);
+    this.excludedMoveFolderIds.set(excluded);
+    this.moveInitialPathIds.set(this.buildInitialMovePathIds(item));
+    this.moveInitialFolderNames.set(this.buildInitialMoveFolderNames(this.moveInitialPathIds()));
+    this.moveDialogVisible.set(true);
+  }
+
+  private buildInitialMovePathIds(item: FileItemDto): string[] {
+    const parentId = item.parentId ?? null;
+    if (!parentId) return [];
+
+    const pathIds = this.folderPathIds();
+    const currentParentId = this.currentParentId();
+
+    if (parentId === currentParentId) {
+      return [...pathIds];
+    }
+
+    const parentIndex = pathIds.indexOf(parentId);
+    if (parentIndex >= 0) {
+      return pathIds.slice(0, parentIndex + 1);
+    }
+
+    return [parentId];
+  }
+
+  private buildInitialMoveFolderNames(pathIds: string[]): Record<string, string> {
+    const names = this.folderNames();
+    const result: Record<string, string> = {};
+
+    for (const id of pathIds) {
+      if (names[id]) {
+        result[id] = names[id];
+      }
+    }
+
+    return result;
+  }
+
+  onRenamed(item: FileItemDto): void {
+    if (item.isFolder && item.id && item.name) {
+      this.rememberFolderName(item.id, item.name);
+    }
+
+    this.messages.add({ severity: 'success', summary: 'Renamed' });
+    this.loadItems();
+  }
+
+  onMoved(event: FileMovedEvent): void {
+    const movedItem = event.item;
+    if (movedItem.id) {
+      this.handleMovedItemInRoute(movedItem);
+    }
+
+    this.applyDestinationFolderNames(event.destinationFolderNames);
+    if (movedItem.isFolder && movedItem.id && movedItem.name) {
+      this.rememberFolderName(movedItem.id, movedItem.name);
+    }
+
+    const groupId = this.groupId();
+    if (groupId) {
+      this.navigateToPath(event.destinationPathIds);
+    }
+
+    this.messages.add({ severity: 'success', summary: 'Moved' });
+  }
+
+  private applyDestinationFolderNames(names: Record<string, string>): void {
+    if (!Object.keys(names).length) return;
+
+    this.folderNames.update((current) => ({ ...current, ...names }));
+    const groupId = this.groupId();
+    if (groupId) {
+      this.breadcrumbs.set(this.buildBreadcrumbs(groupId, this.folderPathIds()));
+    }
+  }
+
+  renameFile = (id: string, request: RenameFileRequest) => {
+    const groupId = this.groupId();
+    if (!groupId) throw new Error('Group is required');
+    return this.groupFilesClient.rename(groupId, id, request);
+  };
+
+  moveFile = (id: string, request: MoveFileRequest) => {
+    const groupId = this.groupId();
+    if (!groupId) throw new Error('Group is required');
+    return this.groupFilesClient.move(groupId, id, request);
+  };
+
+  createFolderForMove = (request: CreateFolderRequest) => {
+    const groupId = this.groupId();
+    if (!groupId) throw new Error('Group is required');
+    return this.groupFilesClient.createFolder(groupId, request);
+  };
+
+  listGroupFiles = (parentId: string | null | undefined) => {
+    const groupId = this.groupId();
+    if (!groupId) throw new Error('Group is required');
+    return this.groupFilesClient.list(groupId, parentId);
+  };
+
+  private async collectDescendantFolderIds(folderId: string): Promise<string[]> {
+    const groupId = this.groupId();
+    if (!groupId) return [];
+
+    const result: string[] = [];
+    const queue = [folderId];
+
+    while (queue.length > 0) {
+      const parentId = queue.shift()!;
+      const items = await firstValueFrom(this.groupFilesClient.list(groupId, parentId));
+
+      for (const entry of items) {
+        if (entry.isFolder && entry.id) {
+          result.push(entry.id);
+          queue.push(entry.id);
+        }
+      }
+    }
+
+    return result;
   }
 
   formatSize(size: number | undefined): string {

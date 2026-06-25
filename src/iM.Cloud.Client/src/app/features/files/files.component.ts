@@ -16,6 +16,8 @@ import {
   FileItemDto,
   FileParameter,
   FilesClient,
+  MoveFileRequest,
+  RenameFileRequest,
 } from '@im-cloud/api';
 import { MessageService } from 'primeng/api';
 import { ConfirmationService, MenuItem } from 'primeng/api';
@@ -28,8 +30,13 @@ import { Menu } from 'primeng/menu';
 import { Select } from 'primeng/select';
 import { TableModule } from 'primeng/table';
 import { Tag } from 'primeng/tag';
-import { filter, finalize, startWith } from 'rxjs';
+import { filter, finalize, firstValueFrom, startWith } from 'rxjs';
 import { environment } from '../../../environments/environment';
+import {
+  FileMovedEvent,
+  MoveFileDialogComponent,
+} from './dialogs/move-file-dialog.component';
+import { RenameFileDialogComponent } from './dialogs/rename-file-dialog.component';
 
 interface BreadcrumbItem {
   id: string | null;
@@ -51,6 +58,8 @@ type ShareExpiryPreset = 'never' | '1h' | '1d' | '7d' | '30d';
     Menu,
     Select,
     Tag,
+    RenameFileDialogComponent,
+    MoveFileDialogComponent,
   ],
   templateUrl: './files.component.html',
   styleUrl: './files.component.scss',
@@ -80,6 +89,15 @@ export class FilesComponent implements OnInit {
   readonly shareExpiresAt = signal<Date | null>(null);
   readonly creatingShare = signal(false);
 
+  readonly renameDialogVisible = signal(false);
+  readonly renameItem = signal<FileItemDto | null>(null);
+
+  readonly moveDialogVisible = signal(false);
+  readonly moveItem = signal<FileItemDto | null>(null);
+  readonly excludedMoveFolderIds = signal<ReadonlySet<string>>(new Set());
+  readonly moveInitialPathIds = signal<string[]>([]);
+  readonly moveInitialFolderNames = signal<Record<string, string>>({});
+
   protected readonly shareExpiryOptions: { label: string; value: ShareExpiryPreset }[] = [
     { label: 'Never', value: 'never' },
     { label: '1 hour', value: '1h' },
@@ -97,7 +115,18 @@ export class FilesComponent implements OnInit {
     const item = this.rowMenuItem();
     if (!item) return [];
 
-    const menuItems: MenuItem[] = [];
+    const menuItems: MenuItem[] = [
+      {
+        label: 'Rename',
+        icon: 'pi pi-pencil',
+        command: () => this.openRenameDialog(item),
+      },
+      {
+        label: 'Move',
+        icon: 'pi pi-arrow-right-arrow-left',
+        command: () => void this.openMoveDialog(item),
+      },
+    ];
 
     if (!item.isFolder) {
       menuItems.push({
@@ -346,6 +375,128 @@ export class FilesComponent implements OnInit {
       const parentIds = deletedIndex === 0 ? [] : pathIds.slice(0, deletedIndex);
       this.navigateToPath(parentIds);
     }
+  }
+
+  private handleMovedItemInRoute(item: FileItemDto): void {
+    if (!item.id) return;
+
+    const pathIds = this.folderPathIds();
+    const movedIndex = pathIds.indexOf(item.id);
+
+    if (movedIndex >= 0) {
+      const parentIds = movedIndex === 0 ? [] : pathIds.slice(0, movedIndex);
+      this.navigateToPath(parentIds);
+    }
+  }
+
+  openRenameDialog(item: FileItemDto): void {
+    this.renameItem.set(item);
+    this.renameDialogVisible.set(true);
+  }
+
+  async openMoveDialog(item: FileItemDto): Promise<void> {
+    const excluded = new Set<string>();
+    if (item.isFolder && item.id) {
+      excluded.add(item.id);
+      const descendants = await this.collectDescendantFolderIds(item.id);
+      descendants.forEach((id) => excluded.add(id));
+    }
+
+    this.moveItem.set(item);
+    this.excludedMoveFolderIds.set(excluded);
+    this.moveInitialPathIds.set(this.buildInitialMovePathIds(item));
+    this.moveInitialFolderNames.set(this.buildInitialMoveFolderNames(this.moveInitialPathIds()));
+    this.moveDialogVisible.set(true);
+  }
+
+  private buildInitialMovePathIds(item: FileItemDto): string[] {
+    const parentId = item.parentId ?? null;
+    if (!parentId) return [];
+
+    const pathIds = this.folderPathIds();
+    const currentParentId = this.currentParentId();
+
+    if (parentId === currentParentId) {
+      return [...pathIds];
+    }
+
+    const parentIndex = pathIds.indexOf(parentId);
+    if (parentIndex >= 0) {
+      return pathIds.slice(0, parentIndex + 1);
+    }
+
+    return [parentId];
+  }
+
+  private buildInitialMoveFolderNames(pathIds: string[]): Record<string, string> {
+    const names = this.folderNames();
+    const result: Record<string, string> = {};
+
+    for (const id of pathIds) {
+      if (names[id]) {
+        result[id] = names[id];
+      }
+    }
+
+    return result;
+  }
+
+  onRenamed(item: FileItemDto): void {
+    if (item.isFolder && item.id && item.name) {
+      this.rememberFolderName(item.id, item.name);
+    }
+
+    this.messages.add({ severity: 'success', summary: 'Renamed' });
+    this.loadItems();
+  }
+
+  onMoved(event: FileMovedEvent): void {
+    const movedItem = event.item;
+    if (movedItem.id) {
+      this.handleMovedItemInRoute(movedItem);
+    }
+
+    this.applyDestinationFolderNames(event.destinationFolderNames);
+    if (movedItem.isFolder && movedItem.id && movedItem.name) {
+      this.rememberFolderName(movedItem.id, movedItem.name);
+    }
+
+    this.navigateToPath(event.destinationPathIds);
+    this.messages.add({ severity: 'success', summary: 'Moved' });
+  }
+
+  private applyDestinationFolderNames(names: Record<string, string>): void {
+    if (!Object.keys(names).length) return;
+
+    this.folderNames.update((current) => ({ ...current, ...names }));
+    this.breadcrumbs.set(this.buildBreadcrumbs(this.folderPathIds()));
+  }
+
+  renameFile = (id: string, request: RenameFileRequest) => this.filesClient.rename(id, request);
+
+  moveFile = (id: string, request: MoveFileRequest) => this.filesClient.move(id, request);
+
+  createFolderForMove = (request: CreateFolderRequest) => this.filesClient.createFolder(request);
+
+  listFiles = (parentId: string | null | undefined) => this.filesClient.list(parentId);
+
+  private async collectDescendantFolderIds(folderId: string): Promise<string[]> {
+    const result: string[] = [];
+    const queue = [folderId];
+
+    while (queue.length > 0) {
+      const parentId = queue.shift()!;
+      const items = await firstValueFrom(this.filesClient.list(parentId));
+
+      for (const entry of items) {
+        if (entry.isFolder && entry.id) {
+          result.push(entry.id);
+          queue.push(entry.id);
+        }
+      }
+    }
+
+    return result;
   }
 
   formatSize(size: number | undefined): string {

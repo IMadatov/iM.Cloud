@@ -80,6 +80,32 @@ public sealed class FilesController : ApiControllerBase
         return FromServiceResult(_fileService.DeleteAsync(id, userId, cancellationToken));
     }
 
+    [HttpPut("{id:guid}/rename")]
+    [ProducesResponseType(typeof(FileItemDto), StatusCodes.Status200OK)]
+    public Task<ActionResult<FileItemDto?>> Rename(
+        Guid id,
+        [FromBody] RenameFileRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (_currentUser.UserId is not Guid userId)
+            return Task.FromResult<ActionResult<FileItemDto?>>(Unauthorized());
+
+        return FromServiceResult(_fileService.RenameAsync(id, request, userId, User.Identity?.Name, cancellationToken));
+    }
+
+    [HttpPut("{id:guid}/move")]
+    [ProducesResponseType(typeof(FileItemDto), StatusCodes.Status200OK)]
+    public Task<ActionResult<FileItemDto?>> Move(
+        Guid id,
+        [FromBody] MoveFileRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (_currentUser.UserId is not Guid userId)
+            return Task.FromResult<ActionResult<FileItemDto?>>(Unauthorized());
+
+        return FromServiceResult(_fileService.MoveAsync(id, request, userId, User.Identity?.Name, cancellationToken));
+    }
+
     [HttpGet("{id:guid}/download")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> Download(Guid id, CancellationToken cancellationToken)

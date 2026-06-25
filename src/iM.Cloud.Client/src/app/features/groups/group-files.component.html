@@ -142,3 +142,25 @@
 </p-dialog>
 
 <p-menu #rowMenu [model]="rowMenuItems()" [popup]="true" appendTo="body" />
+
+<app-rename-file-dialog
+  [visible]="renameDialogVisible()"
+  (visibleChange)="renameDialogVisible.set($event)"
+  [item]="renameItem()"
+  [renameFn]="renameFile"
+  (renamed)="onRenamed($event)"
+/>
+
+<app-move-file-dialog
+  [visible]="moveDialogVisible()"
+  (visibleChange)="moveDialogVisible.set($event)"
+  [item]="moveItem()"
+  [listFn]="listGroupFiles"
+  [moveFn]="moveFile"
+  [createFolderFn]="createFolderForMove"
+  [excludedFolderIds]="excludedMoveFolderIds()"
+  [initialPathIds]="moveInitialPathIds()"
+  [initialFolderNames]="moveInitialFolderNames()"
+  [rootLabel]="groupName()"
+  (moved)="onMoved($event)"
+/>

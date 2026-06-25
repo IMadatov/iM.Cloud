@@ -86,7 +86,7 @@ public sealed class FileService : IFileService
                 return (ServiceResult<FileItemDto>)parentCheck;
         }
 
-        if (await NameExistsAsync(userId, request.ParentId, name, cancellationToken))
+        if (await NameExistsAsync(userId, request.ParentId, name, null, cancellationToken))
             return ServiceResultHelpers.Conflict<FileItemDto>(
                 new ValidationServiceError(ErrorKeys.Files.NameExistsMessage, ErrorKeys.Files.NameExists));
 
@@ -133,7 +133,7 @@ public sealed class FileService : IFileService
                 return (ServiceResult<FileItemDto>)parentCheck;
         }
 
-        if (await NameExistsAsync(userId, parentId, name, cancellationToken))
+        if (await NameExistsAsync(userId, parentId, name, null, cancellationToken))
             return ServiceResultHelpers.Conflict<FileItemDto>(
                 new ValidationServiceError(ErrorKeys.Files.NameExistsMessage, ErrorKeys.Files.NameExists));
 
@@ -203,6 +203,90 @@ public sealed class FileService : IFileService
 
         await _db.SaveChangesAsync(cancellationToken);
         return ServiceResult.NoContent();
+    }
+
+    public async Task<ServiceResult<FileItemDto>> RenameAsync(
+        Guid id,
+        RenameFileRequest request,
+        Guid userId,
+        string? userName,
+        CancellationToken cancellationToken = default)
+    {
+        var item = await _db.FileItems
+            .Include(f => f.StorageObject)
+            .FirstOrDefaultAsync(f => f.Id == id && f.OwnerId == userId && f.GroupId == null && f.Active, cancellationToken);
+
+        if (item is null)
+            return ServiceResultHelpers.NotFound<FileItemDto>(
+                new NotFoundServiceError(ErrorKeys.Files.NotFoundMessage, ErrorKeys.Files.NotFound));
+
+        var nameResult = ValidateRenameName(request.Name);
+        if (nameResult is not null)
+            return nameResult;
+
+        var name = request.Name.Trim();
+        if (string.Equals(item.Name, name, StringComparison.Ordinal))
+            return ToDto(item, item.StorageObject);
+
+        if (await NameExistsAsync(userId, item.ParentId, name, id, cancellationToken))
+            return ServiceResultHelpers.Conflict<FileItemDto>(
+                new ValidationServiceError(ErrorKeys.Files.NameExistsMessage, ErrorKeys.Files.NameExists));
+
+        item.Name = name;
+        item.LastModifiedBy = userName;
+        item.LastModifiedDate = DateTime.UtcNow;
+        await _db.SaveChangesAsync(cancellationToken);
+
+        return ToDto(item, item.StorageObject);
+    }
+
+    public async Task<ServiceResult<FileItemDto>> MoveAsync(
+        Guid id,
+        MoveFileRequest request,
+        Guid userId,
+        string? userName,
+        CancellationToken cancellationToken = default)
+    {
+        var item = await _db.FileItems
+            .Include(f => f.StorageObject)
+            .FirstOrDefaultAsync(f => f.Id == id && f.OwnerId == userId && f.GroupId == null && f.Active, cancellationToken);
+
+        if (item is null)
+            return ServiceResultHelpers.NotFound<FileItemDto>(
+                new NotFoundServiceError(ErrorKeys.Files.NotFoundMessage, ErrorKeys.Files.NotFound));
+
+        var newParentId = request.ParentId;
+
+        if (newParentId == item.Id)
+            return ServiceResultHelpers.BadRequest<FileItemDto>(
+                new ValidationServiceError(ErrorKeys.Files.MoveIntoSelfMessage, ErrorKeys.Files.MoveIntoSelf));
+
+        if (newParentId == item.ParentId)
+            return ToDto(item, item.StorageObject);
+
+        if (newParentId is Guid parentFolderId)
+        {
+            var parentCheck = await ValidateParentFolderAsync(parentFolderId, userId, cancellationToken);
+            if (!parentCheck.IsSuccess)
+                return (ServiceResult<FileItemDto>)parentCheck;
+
+            if (item.IsFolder && await IsPersonalFolderDescendantOfAsync(item.Id, parentFolderId, userId, cancellationToken))
+                return ServiceResultHelpers.BadRequest<FileItemDto>(
+                    new ValidationServiceError(
+                        ErrorKeys.Files.MoveIntoDescendantMessage,
+                        ErrorKeys.Files.MoveIntoDescendant));
+        }
+
+        if (await NameExistsAsync(userId, newParentId, item.Name, id, cancellationToken))
+            return ServiceResultHelpers.Conflict<FileItemDto>(
+                new ValidationServiceError(ErrorKeys.Files.NameExistsMessage, ErrorKeys.Files.NameExists));
+
+        item.ParentId = newParentId;
+        item.LastModifiedBy = userName;
+        item.LastModifiedDate = DateTime.UtcNow;
+        await _db.SaveChangesAsync(cancellationToken);
+
+        return ToDto(item, item.StorageObject);
     }
 
     public async Task<ServiceResult<FileDownloadResult>> GetDownloadAsync(
@@ -432,7 +516,7 @@ public sealed class FileService : IFileService
                 return (ServiceResult<FileItemDto>)parentCheck;
         }
 
-        if (await NameExistsInGroupAsync(groupId, request.ParentId, name, cancellationToken))
+        if (await NameExistsInGroupAsync(groupId, request.ParentId, name, null, cancellationToken))
             return ServiceResultHelpers.Conflict<FileItemDto>(
                 new ValidationServiceError(ErrorKeys.Files.NameExistsMessage, ErrorKeys.Files.NameExists));
 
@@ -484,7 +568,7 @@ public sealed class FileService : IFileService
                 return (ServiceResult<FileItemDto>)parentCheck;
         }
 
-        if (await NameExistsInGroupAsync(groupId, parentId, name, cancellationToken))
+        if (await NameExistsInGroupAsync(groupId, parentId, name, null, cancellationToken))
             return ServiceResultHelpers.Conflict<FileItemDto>(
                 new ValidationServiceError(ErrorKeys.Files.NameExistsMessage, ErrorKeys.Files.NameExists));
 
@@ -603,6 +687,100 @@ public sealed class FileService : IFileService
             return ServiceResultHelpers.InternalServerError<FileDownloadResult>(
                 new ServiceError(ErrorKeys.Files.StorageFailedMessage, ErrorKeys.Files.StorageFailed, null));
         }
+    }
+
+    public async Task<ServiceResult<FileItemDto>> RenameGroupAsync(
+        Guid groupId,
+        Guid id,
+        RenameFileRequest request,
+        Guid userId,
+        string? userName,
+        CancellationToken cancellationToken = default)
+    {
+        var accessCheck = await EnsureGroupAccessAsync(groupId, userId, GroupAccessLevel.Write, cancellationToken);
+        if (!accessCheck.IsSuccess)
+            return (ServiceResult<FileItemDto>)accessCheck;
+
+        var item = await _db.FileItems
+            .Include(f => f.StorageObject)
+            .FirstOrDefaultAsync(f => f.Id == id && f.GroupId == groupId && f.Active, cancellationToken);
+
+        if (item is null)
+            return ServiceResultHelpers.NotFound<FileItemDto>(
+                new NotFoundServiceError(ErrorKeys.Files.NotFoundMessage, ErrorKeys.Files.NotFound));
+
+        var nameResult = ValidateRenameName(request.Name);
+        if (nameResult is not null)
+            return nameResult;
+
+        var name = request.Name.Trim();
+        if (string.Equals(item.Name, name, StringComparison.Ordinal))
+            return ToDto(item, item.StorageObject);
+
+        if (await NameExistsInGroupAsync(groupId, item.ParentId, name, id, cancellationToken))
+            return ServiceResultHelpers.Conflict<FileItemDto>(
+                new ValidationServiceError(ErrorKeys.Files.NameExistsMessage, ErrorKeys.Files.NameExists));
+
+        item.Name = name;
+        item.LastModifiedBy = userName;
+        item.LastModifiedDate = DateTime.UtcNow;
+        await _db.SaveChangesAsync(cancellationToken);
+
+        return ToDto(item, item.StorageObject);
+    }
+
+    public async Task<ServiceResult<FileItemDto>> MoveGroupAsync(
+        Guid groupId,
+        Guid id,
+        MoveFileRequest request,
+        Guid userId,
+        string? userName,
+        CancellationToken cancellationToken = default)
+    {
+        var accessCheck = await EnsureGroupAccessAsync(groupId, userId, GroupAccessLevel.Write, cancellationToken);
+        if (!accessCheck.IsSuccess)
+            return (ServiceResult<FileItemDto>)accessCheck;
+
+        var item = await _db.FileItems
+            .Include(f => f.StorageObject)
+            .FirstOrDefaultAsync(f => f.Id == id && f.GroupId == groupId && f.Active, cancellationToken);
+
+        if (item is null)
+            return ServiceResultHelpers.NotFound<FileItemDto>(
+                new NotFoundServiceError(ErrorKeys.Files.NotFoundMessage, ErrorKeys.Files.NotFound));
+
+        var newParentId = request.ParentId;
+
+        if (newParentId == item.Id)
+            return ServiceResultHelpers.BadRequest<FileItemDto>(
+                new ValidationServiceError(ErrorKeys.Files.MoveIntoSelfMessage, ErrorKeys.Files.MoveIntoSelf));
+
+        if (newParentId == item.ParentId)
+            return ToDto(item, item.StorageObject);
+
+        if (newParentId is Guid parentFolderId)
+        {
+            var parentCheck = await ValidateGroupParentFolderAsync(parentFolderId, groupId, cancellationToken);
+            if (!parentCheck.IsSuccess)
+                return (ServiceResult<FileItemDto>)parentCheck;
+
+            if (item.IsFolder && await IsGroupFolderDescendantOfAsync(item.Id, parentFolderId, groupId, cancellationToken))
+                return ServiceResultHelpers.BadRequest<FileItemDto>(
+                    new ValidationServiceError(
+                        ErrorKeys.Files.MoveIntoDescendantMessage,
+                        ErrorKeys.Files.MoveIntoDescendant));
+        }
+
+        if (await NameExistsInGroupAsync(groupId, newParentId, item.Name, id, cancellationToken))
+            return ServiceResultHelpers.Conflict<FileItemDto>(
+                new ValidationServiceError(ErrorKeys.Files.NameExistsMessage, ErrorKeys.Files.NameExists));
+
+        item.ParentId = newParentId;
+        item.LastModifiedBy = userName;
+        item.LastModifiedDate = DateTime.UtcNow;
+        await _db.SaveChangesAsync(cancellationToken);
+
+        return ToDto(item, item.StorageObject);
     }
 
     private async Task<IReadOnlyList<Guid>> CollectDescendantIdsAsync(
@@ -755,10 +933,61 @@ public sealed class FileService : IFileService
         Guid groupId,
         Guid? parentId,
         string name,
+        Guid? excludeId,
         CancellationToken cancellationToken) =>
         _db.FileItems.AnyAsync(
-            f => f.GroupId == groupId && f.Active && f.ParentId == parentId && f.Name == name,
+            f => f.GroupId == groupId
+                 && f.Active
+                 && f.ParentId == parentId
+                 && f.Name == name
+                 && (excludeId == null || f.Id != excludeId),
             cancellationToken);
+
+    private async Task<bool> IsPersonalFolderDescendantOfAsync(
+        Guid folderId,
+        Guid candidateId,
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        if (folderId == candidateId)
+            return true;
+
+        var descendants = await CollectDescendantIdsAsync(folderId, userId, cancellationToken);
+        return descendants.Contains(candidateId);
+    }
+
+    private async Task<bool> IsGroupFolderDescendantOfAsync(
+        Guid folderId,
+        Guid candidateId,
+        Guid groupId,
+        CancellationToken cancellationToken)
+    {
+        if (folderId == candidateId)
+            return true;
+
+        var descendants = await CollectGroupDescendantIdsAsync(folderId, groupId, cancellationToken);
+        return descendants.Contains(candidateId);
+    }
+
+    private static ServiceResult<FileItemDto>? ValidateRenameName(string? name)
+    {
+        var trimmed = name?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(trimmed))
+            return ServiceResultHelpers.BadRequest<FileItemDto>(
+                new ValidationServiceError(ErrorKeys.Files.NameRequiredMessage, ErrorKeys.Files.NameRequired));
+
+        try
+        {
+            FileItem.ValidateName(trimmed);
+        }
+        catch (ArgumentException)
+        {
+            return ServiceResultHelpers.BadRequest<FileItemDto>(
+                new ValidationServiceError(ErrorKeys.Files.InvalidNameMessage, ErrorKeys.Files.InvalidName));
+        }
+
+        return null;
+    }
 
     private async Task<ServiceResult> ValidateParentFolderAsync(
         Guid parentId,
@@ -786,9 +1015,15 @@ public sealed class FileService : IFileService
         Guid userId,
         Guid? parentId,
         string name,
+        Guid? excludeId,
         CancellationToken cancellationToken) =>
         _db.FileItems.AnyAsync(
-            f => f.OwnerId == userId && f.GroupId == null && f.Active && f.ParentId == parentId && f.Name == name,
+            f => f.OwnerId == userId
+                 && f.GroupId == null
+                 && f.Active
+                 && f.ParentId == parentId
+                 && f.Name == name
+                 && (excludeId == null || f.Id != excludeId),
             cancellationToken);
 
     private static FileItemDto ToDto(FileItem item, StorageObject? storageObject) => new()

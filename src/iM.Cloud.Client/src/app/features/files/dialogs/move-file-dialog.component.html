@@ -1,0 +1,92 @@
+<p-dialog
+  header="Move to"
+  [visible]="visible()"
+  (visibleChange)="visible.set($event)"
+  [modal]="true"
+  [style]="{ width: '32rem' }"
+>
+  @if (item()?.name) {
+    <p class="move-item-label">
+      Moving{{ item()?.isFolder ? ' folder' : '' }}:
+      <strong>{{ item()?.name }}</strong>
+    </p>
+  }
+
+  <p-breadcrumb [model]="breadcrumbModel()" [home]="undefined" class="move-breadcrumb" />
+
+  <div class="move-destination">
+    <span class="move-destination-label">
+      Destination: <strong>{{ destinationLabel() }}</strong>
+    </span>
+    <p-button
+      label="Move here"
+      icon="pi pi-arrow-right"
+      size="small"
+      [loading]="moving()"
+      [disabled]="!canMoveHere()"
+      (onClick)="moveHere()"
+    />
+  </div>
+
+  <div class="new-folder-section">
+    <p-button
+      label="New folder"
+      icon="pi pi-folder-plus"
+      [text]="true"
+      size="small"
+      [disabled]="!createFolderFn() || creatingFolder() || moving()"
+      (onClick)="toggleNewFolderInput()"
+    />
+    @if (showNewFolderInput()) {
+      <div class="new-folder-row">
+        <input
+          pInputText
+          class="new-folder-input"
+          [ngModel]="newFolderName()"
+          (ngModelChange)="newFolderName.set($event)"
+          placeholder="Folder name"
+          (keyup.enter)="createFolder()"
+        />
+        <p-button
+          label="Create"
+          size="small"
+          [loading]="creatingFolder()"
+          [disabled]="!newFolderName().trim() || creatingFolder() || moving()"
+          (onClick)="createFolder()"
+        />
+      </div>
+    }
+  </div>
+
+  <div class="folder-list">
+    @if (loading()) {
+      <p class="folder-hint">Loading...</p>
+    } @else if (folders().length === 0) {
+      <p class="folder-hint">No subfolders here.</p>
+    } @else {
+      @for (folder of folders(); track folder.id) {
+        <div class="folder-row">
+          <button type="button" class="folder-nav" (click)="openFolder(folder)">
+            <i class="pi pi-folder"></i>
+            <span>{{ folder.name }}</span>
+            <i class="pi pi-chevron-right folder-chevron"></i>
+          </button>
+          <p-button
+            class="folder-move-btn"
+            label="Move in"
+            icon="pi pi-arrow-right"
+            [text]="true"
+            size="small"
+            severity="secondary"
+            [disabled]="!canMoveIntoFolder(folder) || moving()"
+            (onClick)="moveIntoFolder(folder, $event)"
+          />
+        </div>
+      }
+    }
+  </div>
+
+  <div class="move-actions">
+    <p-button label="Cancel" [text]="true" (onClick)="visible.set(false)" />
+  </div>
+</p-dialog>

@@ -2106,6 +2106,8 @@ export interface IFilesClient {
     createFolder(request: CreateFolderRequest): Observable<FileItemDto>;
     upload(parentId: string | null | undefined, file: FileParameter | null | undefined): Observable<FileItemDto>;
     delete(id: string): Observable<FileResponse>;
+    rename(id: string, request: RenameFileRequest): Observable<FileItemDto>;
+    move(id: string, request: MoveFileRequest): Observable<FileItemDto>;
     download(id: string): Observable<void>;
     share(id: string, request: CreateShareRequest): Observable<ShareLinkDto>;
     revokeShare(token: string): Observable<FileResponse>;
@@ -2343,6 +2345,116 @@ export class FilesClient implements IFilesClient {
         return _observableOf(null as any);
     }
 
+    rename(id: string, request: RenameFileRequest): Observable<FileItemDto> {
+        let url_ = this.baseUrl + "/api/files/{id}/rename";
+        if (id === undefined || id === null)
+            throw new Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(request);
+
+        let options_ : any = {
+            body: content_,
+            observe: "response",
+            responseType: "blob",
+            headers: new HttpHeaders({
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            })
+        };
+
+        return this.http.request("put", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processRename(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processRename(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<FileItemDto>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<FileItemDto>;
+        }));
+    }
+
+    protected processRename(response: HttpResponseBase): Observable<FileItemDto> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result200 = FileItemDto.fromJS(resultData200);
+            return _observableOf(result200);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+
+    move(id: string, request: MoveFileRequest): Observable<FileItemDto> {
+        let url_ = this.baseUrl + "/api/files/{id}/move";
+        if (id === undefined || id === null)
+            throw new Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(request);
+
+        let options_ : any = {
+            body: content_,
+            observe: "response",
+            responseType: "blob",
+            headers: new HttpHeaders({
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            })
+        };
+
+        return this.http.request("put", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processMove(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processMove(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<FileItemDto>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<FileItemDto>;
+        }));
+    }
+
+    protected processMove(response: HttpResponseBase): Observable<FileItemDto> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result200 = FileItemDto.fromJS(resultData200);
+            return _observableOf(result200);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+
     download(id: string): Observable<void> {
         let url_ = this.baseUrl + "/api/files/{id}/download";
         if (id === undefined || id === null)
@@ -2506,6 +2618,8 @@ export interface IGroupFilesClient {
     createFolder(groupId: string, request: CreateFolderRequest): Observable<FileItemDto>;
     upload(groupId: string, parentId: string | null | undefined, file: FileParameter | null | undefined): Observable<FileItemDto>;
     delete(groupId: string, id: string): Observable<FileResponse>;
+    rename(groupId: string, id: string, request: RenameFileRequest): Observable<FileItemDto>;
+    move(groupId: string, id: string, request: MoveFileRequest): Observable<FileItemDto>;
     download(groupId: string, id: string): Observable<void>;
     share(groupId: string, id: string, request: CreateShareRequest): Observable<ShareLinkDto>;
 }
@@ -2746,6 +2860,122 @@ export class GroupFilesClient implements IGroupFilesClient {
                 fileName = fileNameMatch && fileNameMatch.length > 1 ? fileNameMatch[1] : undefined;
             }
             return _observableOf({ fileName: fileName, data: responseBlob as any, status: status, headers: _headers });
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+
+    rename(groupId: string, id: string, request: RenameFileRequest): Observable<FileItemDto> {
+        let url_ = this.baseUrl + "/api/groups/{groupId}/files/{id}/rename";
+        if (groupId === undefined || groupId === null)
+            throw new Error("The parameter 'groupId' must be defined.");
+        url_ = url_.replace("{groupId}", encodeURIComponent("" + groupId));
+        if (id === undefined || id === null)
+            throw new Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(request);
+
+        let options_ : any = {
+            body: content_,
+            observe: "response",
+            responseType: "blob",
+            headers: new HttpHeaders({
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            })
+        };
+
+        return this.http.request("put", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processRename(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processRename(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<FileItemDto>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<FileItemDto>;
+        }));
+    }
+
+    protected processRename(response: HttpResponseBase): Observable<FileItemDto> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result200 = FileItemDto.fromJS(resultData200);
+            return _observableOf(result200);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+
+    move(groupId: string, id: string, request: MoveFileRequest): Observable<FileItemDto> {
+        let url_ = this.baseUrl + "/api/groups/{groupId}/files/{id}/move";
+        if (groupId === undefined || groupId === null)
+            throw new Error("The parameter 'groupId' must be defined.");
+        url_ = url_.replace("{groupId}", encodeURIComponent("" + groupId));
+        if (id === undefined || id === null)
+            throw new Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(request);
+
+        let options_ : any = {
+            body: content_,
+            observe: "response",
+            responseType: "blob",
+            headers: new HttpHeaders({
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            })
+        };
+
+        return this.http.request("put", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processMove(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processMove(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<FileItemDto>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<FileItemDto>;
+        }));
+    }
+
+    protected processMove(response: HttpResponseBase): Observable<FileItemDto> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result200 = FileItemDto.fromJS(resultData200);
+            return _observableOf(result200);
+            }));
         } else if (status !== 200 && status !== 204) {
             return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
             return throwException("An unexpected server error occurred.", status, _responseText, _headers);
@@ -4400,6 +4630,78 @@ export class CreateFolderRequest implements ICreateFolderRequest {
 
 export interface ICreateFolderRequest {
     name?: string;
+    parentId?: string | undefined;
+}
+
+export class RenameFileRequest implements IRenameFileRequest {
+    name?: string;
+
+    constructor(data?: IRenameFileRequest) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (<any>this)[property] = (<any>data)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            this.name = _data["name"];
+        }
+    }
+
+    static fromJS(data: any): RenameFileRequest {
+        data = typeof data === 'object' ? data : {};
+        let result = new RenameFileRequest();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        data["name"] = this.name;
+        return data;
+    }
+}
+
+export interface IRenameFileRequest {
+    name?: string;
+}
+
+export class MoveFileRequest implements IMoveFileRequest {
+    parentId?: string | undefined;
+
+    constructor(data?: IMoveFileRequest) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (<any>this)[property] = (<any>data)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            this.parentId = _data["parentId"];
+        }
+    }
+
+    static fromJS(data: any): MoveFileRequest {
+        data = typeof data === 'object' ? data : {};
+        let result = new MoveFileRequest();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        data["parentId"] = this.parentId;
+        return data;
+    }
+}
+
+export interface IMoveFileRequest {
     parentId?: string | undefined;
 }
 

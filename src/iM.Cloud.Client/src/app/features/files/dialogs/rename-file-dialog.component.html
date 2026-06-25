@@ -1,0 +1,20 @@
+<p-dialog
+  header="Rename"
+  [visible]="visible()"
+  (visibleChange)="visible.set($event)"
+  [modal]="true"
+  [style]="{ width: '24rem' }"
+>
+  <input
+    pInputText
+    class="w-full"
+    [ngModel]="newName()"
+    (ngModelChange)="newName.set($event)"
+    placeholder="Name"
+    (keyup.enter)="save()"
+  />
+  <ng-template pTemplate="footer">
+    <p-button label="Cancel" [text]="true" (onClick)="visible.set(false)" />
+    <p-button label="Save" [loading]="saving()" (onClick)="save()" />
+  </ng-template>
+</p-dialog>

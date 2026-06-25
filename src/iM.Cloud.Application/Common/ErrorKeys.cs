@@ -146,6 +146,12 @@ public static class ErrorKeys
 
         public const string ShareInvalidExpiry = "files.share_invalid_expiry";
         public const string ShareInvalidExpiryMessage = "files.share_invalid_expiry.message";
+
+        public const string MoveIntoSelf = "files.move_into_self";
+        public const string MoveIntoSelfMessage = "files.move_into_self.message";
+
+        public const string MoveIntoDescendant = "files.move_into_descendant";
+        public const string MoveIntoDescendantMessage = "files.move_into_descendant.message";
     }
 
     public static class Server
