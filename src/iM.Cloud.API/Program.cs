@@ -6,8 +6,19 @@ using iM.Cloud.Application;
 using iM.Cloud.Application.Common.Interfaces;
 using iM.Cloud.Infrastructure;
 using iM.Cloud.Infrastructure.Persistence.Seed;
+using Microsoft.AspNetCore.HttpOverrides;
 
 var builder = WebApplication.CreateBuilder(args);
+
+if (builder.Environment.IsDevelopment() || builder.Environment.IsEnvironment("NSwag"))
+    builder.Configuration.AddUserSecrets<Program>(optional: true);
+
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
 
 builder.Services.AddControllers().AddJsonOptions(options =>
 {
@@ -15,8 +26,11 @@ builder.Services.AddControllers().AddJsonOptions(options =>
     options.JsonSerializerOptions.Converters.Add(new PrimeTableMetaConverter());
 });
 
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerWithJwt();
+if (builder.Environment.IsDevelopment() || builder.Environment.IsEnvironment("NSwag"))
+{
+    builder.Services.AddEndpointsApiExplorer();
+    builder.Services.AddSwaggerWithJwt();
+}
 
 if (builder.Environment.IsEnvironment("NSwag"))
     builder.Services.AddNswagOpenApiDocument();
@@ -55,6 +69,7 @@ if (app.Environment.IsDevelopment())
     });
 }
 
+app.UseForwardedHeaders();
 app.UseHttpsRedirection();
 
 if (app.Environment.IsDevelopment())
